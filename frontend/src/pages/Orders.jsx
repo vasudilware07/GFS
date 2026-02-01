@@ -141,12 +141,13 @@ export default function Orders() {
                     <div className="flex items-center gap-2">
                       <div className="flex -space-x-2">
                         {order.items.slice(0, 3).map((item, index) => (
-                          <img
+                          <div
                             key={index}
-                            src={item.product?.images?.[0] || 'https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=100'}
-                            alt={item.product?.name}
-                            className="w-10 h-10 rounded-lg object-cover border-2 border-white"
-                          />
+                            className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-400 to-orange-400 border-2 border-white flex items-center justify-center text-white font-bold text-xs"
+                            title={item.name}
+                          >
+                            {item.name?.charAt(0) || 'P'}
+                          </div>
                         ))}
                         {order.items.length > 3 && (
                           <div className="w-10 h-10 rounded-lg bg-gray-100 border-2 border-white flex items-center justify-center text-sm font-medium text-gray-600">
@@ -248,19 +249,17 @@ function OrderDetail({ order }) {
           <div className="space-y-4">
             {order.items.map((item, index) => (
               <div key={index} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
-                <img
-                  src={item.product?.images?.[0] || 'https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=100'}
-                  alt={item.product?.name}
-                  className="w-16 h-16 object-cover rounded-lg"
-                />
+                <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-green-400 to-orange-400 flex items-center justify-center text-white font-bold text-xl">
+                  {item.name?.charAt(0) || 'P'}
+                </div>
                 <div className="flex-1">
-                  <h3 className="font-medium text-gray-900">{item.product?.name || 'Product'}</h3>
+                  <h3 className="font-medium text-gray-900">{item.name || 'Product'}</h3>
                   <p className="text-sm text-gray-500">
-                    ₹{item.price?.toLocaleString('en-IN')} × {item.quantity} {item.product?.unit || 'kg'}
+                    ₹{item.pricePerUnit?.toLocaleString('en-IN')} × {item.quantity} {item.unit || 'kg'}
                   </p>
                 </div>
                 <span className="font-bold text-gray-900">
-                  ₹{(item.price * item.quantity).toLocaleString('en-IN')}
+                  ₹{item.totalPrice?.toLocaleString('en-IN')}
                 </span>
               </div>
             ))}
@@ -274,7 +273,7 @@ function OrderDetail({ order }) {
             </div>
             <div className="flex justify-between mb-2">
               <span className="text-gray-600">GST (18%)</span>
-              <span>₹{order.tax?.toLocaleString('en-IN')}</span>
+              <span>₹{order.gstAmount?.toLocaleString('en-IN')}</span>
             </div>
             <div className="flex justify-between text-lg font-bold">
               <span>Total</span>

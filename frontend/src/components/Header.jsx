@@ -39,10 +39,10 @@ export default function Header() {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 flex-shrink-0">
             <div className="bg-white rounded-lg p-1.5 shadow-md">
-              <img src="/logo/logo.png" alt="Ganesh Fruit Suppliers" className="h-12 w-12 object-contain" />
+              <img src="/logo/lbr-logo.svg" alt="LBR Fruit Suppliers" className="h-12 w-12 object-contain" />
             </div>
             <div className="hidden sm:block">
-              <h1 className="text-2xl font-bold leading-tight tracking-tight">Ganesh Fruit</h1>
+              <h1 className="text-2xl font-bold leading-tight tracking-tight">LBR Fruit</h1>
               <p className="text-sm text-green-200 font-medium">Suppliers</p>
             </div>
           </Link>

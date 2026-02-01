@@ -251,7 +251,7 @@ function InvoiceDetail({ invoice, onDownload }) {
             <div>
               <h3 className="font-bold text-gray-900 mb-2">From</h3>
               <p className="text-gray-600">
-                Ganesh Fruit Suppliers<br />
+                LBR Fruit Suppliers<br />
                 APMC Market, Turbhe<br />
                 Navi Mumbai - 400703<br />
                 GSTIN: 27AABCG1234R1Z5
@@ -303,15 +303,15 @@ function InvoiceDetail({ invoice, onDownload }) {
                 </tr>
               </thead>
               <tbody>
-                {invoice.items?.map((item, index) => (
+                {(invoice.items || invoice.orderId?.items)?.map((item, index) => (
                   <tr key={index} className="border-b">
                     <td className="py-3 px-4">
-                      <p className="font-medium">{item.product?.name || item.name}</p>
+                      <p className="font-medium">{item.name || item.product?.name}</p>
                       <p className="text-sm text-gray-500">{item.description}</p>
                     </td>
                     <td className="text-center py-3 px-4">{item.quantity} {item.unit}</td>
-                    <td className="text-right py-3 px-4">₹{item.price?.toLocaleString('en-IN')}</td>
-                    <td className="text-right py-3 px-4">₹{(item.price * item.quantity).toLocaleString('en-IN')}</td>
+                    <td className="text-right py-3 px-4">₹{(item.pricePerUnit || item.price)?.toLocaleString('en-IN')}</td>
+                    <td className="text-right py-3 px-4">₹{(item.totalPrice || (item.pricePerUnit || item.price) * item.quantity)?.toLocaleString('en-IN')}</td>
                   </tr>
                 ))}
               </tbody>
@@ -371,9 +371,9 @@ function InvoiceDetail({ invoice, onDownload }) {
           <h3 className="font-bold text-green-800 mb-2">Bank Details for Payment</h3>
           <div className="text-green-700 text-sm">
             <p>Bank: State Bank of India</p>
-            <p>Account Name: Ganesh Fruit Suppliers</p>
-            <p>Account Number: 12345678901234</p>
-            <p>IFSC Code: SBIN0001234</p>
+            <p>Account Name: LBR Fruit Suppliers</p>
+            <p>Account Number: 41829132000</p>
+            <p>IFSC Code: SBIN0030039</p>
           </div>
         </div>
       </div>

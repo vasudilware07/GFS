@@ -26,9 +26,14 @@ export default function Home() {
 
   const categories = [
     { name: 'Fresh Fruits', icon: '🍎', link: '/products?category=FRUITS', color: 'bg-red-100' },
-    { name: 'Exotic Fruits', icon: '🥝', link: '/products?category=EXOTIC', color: 'bg-green-100' },
-    { name: 'Seasonal', icon: '🥭', link: '/products?category=SEASONAL', color: 'bg-yellow-100' },
-    { name: 'Dry Fruits', icon: '🥜', link: '/products?category=DRY_FRUITS', color: 'bg-orange-100' },
+    { name: 'Seasonal Fruits', icon: '🥭', link: '/products?category=SEASONAL', color: 'bg-yellow-100' },
+  ];
+
+  const owners = [
+    { name: 'Ghisu Dilware', role: 'Founder' },
+    { name: 'Bhagwan Dilware', role: 'Co-Founder' },
+    { name: 'Subhash Dilware', role: 'Partner' },
+    { name: 'Shekhar Dilware', role: 'Partner' },
   ];
 
   const features = [
@@ -137,7 +142,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to Start Ordering?</h2>
           <p className="text-lg text-orange-100 mb-8 max-w-2xl mx-auto">
-            Join hundreds of retailers who trust Ganesh Fruit Suppliers for their daily fruit needs.
+            Join hundreds of retailers who trust LBR Fruit Suppliers for their daily fruit needs.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <Link to="/register" className="bg-white text-orange-600 hover:bg-gray-100 font-semibold px-8 py-3 rounded-lg transition-colors">
@@ -170,6 +175,29 @@ export default function Home() {
               <p className="text-4xl font-bold text-green-600">24/7</p>
               <p className="text-gray-600">Customer Support</p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Owners Section */}
+      <section className="py-16 bg-gradient-to-r from-green-50 to-orange-50">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">Meet Our Owners</h2>
+            <p className="text-gray-600 max-w-2xl mx-auto">
+              A family business built on trust, quality, and dedication to serve you the freshest fruits.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {owners.map((owner, index) => (
+              <div key={index} className="bg-white rounded-xl shadow-lg p-6 text-center transform hover:scale-105 transition-transform duration-300">
+                <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-orange-400 rounded-full mx-auto mb-4 flex items-center justify-center">
+                  <span className="text-3xl text-white font-bold">{owner.name.charAt(0)}</span>
+                </div>
+                <h3 className="text-lg font-bold text-gray-800">{owner.name}</h3>
+                <p className="text-green-600 font-medium">{owner.role}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>

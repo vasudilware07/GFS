@@ -11,10 +11,10 @@ export default function Footer() {
           <div>
             <div className="flex items-center gap-3 mb-4">
               <div className="bg-white rounded-lg p-1.5 shadow-md">
-                <img src="/logo/logo.png" alt="Ganesh Fruit Suppliers" className="h-14 w-14 object-contain" />
+                <img src="/logo/lbr-logo.svg" alt="LBR Fruit Suppliers" className="h-14 w-14 object-contain" />
               </div>
               <div>
-                <h3 className="text-2xl font-bold text-white">Ganesh Fruit</h3>
+                <h3 className="text-2xl font-bold text-white">LBR Fruit</h3>
                 <p className="text-sm text-green-400 font-medium">Suppliers</p>
               </div>
             </div>
@@ -88,7 +88,7 @@ export default function Footer() {
       <div className="border-t border-gray-800">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm">
-            <p>© 2026 Ganesh Fruit Suppliers. All rights reserved.</p>
+            <p>© 2026 LBR Fruit Suppliers. All rights reserved.</p>
             <p>Made with ❤️ By VASUDEV SUBHASH DILWARE</p>
             <div className="flex items-center gap-4">
               <span className="text-gray-500">We Accept:</span>

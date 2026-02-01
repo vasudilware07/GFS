@@ -50,7 +50,7 @@ export default function Cart() {
         key: orderData.razorpay.key,
         amount: orderData.razorpay.amount,
         currency: orderData.razorpay.currency,
-        name: 'Ganesh Fruit Suppliers',
+        name: 'LBR Fruit Suppliers',
         description: 'Order Payment',
         order_id: orderData.razorpay.orderId,
         handler: async (response) => {

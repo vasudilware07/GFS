@@ -147,15 +147,6 @@ export default function Login() {
             <span className="font-medium text-gray-700">Continue with Google</span>
           </button>
 
-          {/* Demo Credentials */}
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <p className="text-xs text-gray-500 mb-2">Demo Credentials:</p>
-            <div className="text-xs space-y-1">
-              <p><strong>Admin:</strong> admin@ganeshfruits.com / admin123</p>
-              <p><strong>Customer:</strong> rahul@freshmart.com / customer123</p>
-            </div>
-          </div>
-
           {/* Register Link */}
           <p className="mt-6 text-center text-gray-600">
             Don't have an account?{' '}

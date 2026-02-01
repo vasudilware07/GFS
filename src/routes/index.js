@@ -22,7 +22,7 @@ router.use("/reports", reportRoutes);
 router.get("/health", (req, res) => {
   res.json({ 
     success: true, 
-    message: "Ganesh Fruit Suppliers API is running",
+    message: "LBR Fruit Suppliers API is running",
     timestamp: new Date().toISOString()
   });
 });

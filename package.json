@@ -1,7 +1,7 @@
 {
-  "name": "ganesh-fruit-suppliers",
+  "name": "lbr-fruit-suppliers",
   "version": "1.0.0",
-  "description": "B2B Wholesale Fruit Ecommerce + Billing System for Ganesh Fruit Suppliers",
+  "description": "B2B Wholesale Fruit Ecommerce + Billing System for LBR Fruit Suppliers",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
@@ -16,7 +16,7 @@
     "invoice",
     "b2b"
   ],
-  "author": "Ganesh Fruit Suppliers",
+  "author": "LBR Fruit Suppliers",
   "license": "ISC",
   "dependencies": {
     "bcryptjs": "^2.4.3",

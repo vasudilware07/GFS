@@ -66,11 +66,11 @@ export default function AdminLayout() {
         <div className="p-4 border-b flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="bg-green-50 rounded-lg p-1.5">
-              <img src="/logo/logo.png" alt="GFS" className="h-11 w-11 object-contain" />
+              <img src="/logo/lbr-logo.svg" alt="LBR" className="h-11 w-11 object-contain" />
             </div>
             <div>
-              <h1 className="font-bold text-gray-900 text-lg">GFS Admin</h1>
-              <p className="text-xs text-gray-500">Ganesh Fruit Suppliers</p>
+              <h1 className="font-bold text-gray-900 text-lg">LBR Admin</h1>
+              <p className="text-xs text-gray-500">Fruit Suppliers</p>
             </div>
           </div>
           <button 

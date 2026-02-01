@@ -15,9 +15,9 @@ const { User, Product } = require("./models");
 // Sample data
 const adminUser = {
   role: "ADMIN",
-  shopName: "Ganesh Fruit Suppliers",
+  shopName: "LBR Fruit Suppliers",
   ownerName: "Admin",
-  email: "admin@ganeshfruits.com",
+  email: "admin@lbrfruits.com",
   phone: "+91 98765 43210",
   gstNumber: "27AABCU9603R1ZM",
   address: {
@@ -103,7 +103,7 @@ async function seedDatabase() {
     ✅ Database seeded successfully!
     
     📌 Admin Login:
-    Email: admin@ganeshfruits.com
+    Email: admin@lbrfruits.com
     Password: admin123
     
     📌 Sample Customer Login:

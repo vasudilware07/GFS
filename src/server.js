@@ -13,7 +13,7 @@ startDueReminderCron();
 const PORT = config.port;
 app.listen(PORT, () => {
   console.log(`
-  🍎 Ganesh Fruit Suppliers API
+  🍎 LBR Fruit Suppliers API
   ============================
   📦 Server running on port ${PORT}
   🌐 URL: http://localhost:${PORT}

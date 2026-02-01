@@ -102,7 +102,7 @@ orderSchema.pre("save", async function(next) {
     const date = new Date();
     const year = date.getFullYear().toString().slice(-2);
     const month = (date.getMonth() + 1).toString().padStart(2, "0");
-    this.orderNumber = `GFS-${year}${month}-${(count + 1).toString().padStart(4, "0")}`;
+    this.orderNumber = `LBR-${year}${month}-${(count + 1).toString().padStart(4, "0")}`;
   }
   
   // Calculate due amount

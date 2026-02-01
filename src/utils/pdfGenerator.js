@@ -173,7 +173,7 @@ async function generateInvoicePDF(invoice, order, user) {
       doc.fontSize(10).font("Helvetica-Bold").text("Bank Details:", 50);
       doc.fontSize(9).font("Helvetica");
       doc.text("Bank: State Bank of India", 50);
-      doc.text("Account Name: Ganesh Fruit Suppliers", 50);
+      doc.text("Account Name: LBR Fruit Suppliers", 50);
       doc.text("Account No: 1234567890", 50);
       doc.text("IFSC Code: SBIN0001234", 50);
       
