@@ -1,6 +1,16 @@
 const { Order, Product, User, Invoice } = require("../models");
 const { generateInvoicePDF } = require("../utils/pdfGenerator");
 const { sendInvoiceEmail } = require("../utils/emailSender");
+const crypto = require("crypto");
+
+// COD convenience fee
+const COD_CONVENIENCE_FEE = 10;
+
+// Initialize Razorpay only if credentials are set
+let razorpay = null;
+if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_ID !== 'YOUR_RAZORPAY_KEY_ID') {
+  razorpay = require("../config/razorpay");
+}
 
 /**
  * @desc    Create new order
@@ -9,7 +19,7 @@ const { sendInvoiceEmail } = require("../utils/emailSender");
  */
 exports.createOrder = async (req, res) => {
   try {
-    const { items, notes, deliveryDate, deliveryAddress } = req.body;
+    const { items, notes, deliveryDate, deliveryAddress, paymentMethod = "CREDIT" } = req.body;
     const userId = req.user._id;
     
     // Check if user is blocked
@@ -72,14 +82,45 @@ exports.createOrder = async (req, res) => {
     
     const totalAmount = subtotal + gstAmount;
     
-    // Check credit limit
-    const user = await User.findById(userId);
-    const newDue = user.currentDue + totalAmount;
+    // Calculate convenience fee for COD
+    let convenienceFee = 0;
+    if (paymentMethod === "COD") {
+      convenienceFee = COD_CONVENIENCE_FEE;
+    }
     
-    if (newDue > user.creditLimit) {
-      return res.status(400).json({
-        success: false,
-        message: `Order exceeds credit limit. Current due: ₹${user.currentDue}, Credit limit: ₹${user.creditLimit}`
+    const finalAmount = totalAmount + convenienceFee;
+    
+    // Check credit limit (only for CREDIT payment method)
+    const user = await User.findById(userId);
+    
+    if (paymentMethod === "CREDIT") {
+      const newDue = user.currentDue + finalAmount;
+      
+      if (newDue > user.creditLimit) {
+        return res.status(400).json({
+          success: false,
+          message: `Order exceeds credit limit. Current due: ₹${user.currentDue}, Credit limit: ₹${user.creditLimit}`
+        });
+      }
+    }
+    
+    // For Razorpay payment, create Razorpay order first
+    let razorpayOrder = null;
+    if (paymentMethod === "RAZORPAY") {
+      if (!razorpay) {
+        return res.status(400).json({
+          success: false,
+          message: "Online payment is not configured. Please choose another payment method."
+        });
+      }
+      
+      razorpayOrder = await razorpay.orders.create({
+        amount: Math.round(finalAmount * 100), // Razorpay expects amount in paise
+        currency: "INR",
+        receipt: `order_${Date.now()}`,
+        notes: {
+          userId: userId.toString(),
+        }
       });
     }
     
@@ -89,16 +130,39 @@ exports.createOrder = async (req, res) => {
       items: orderItems,
       subtotal,
       gstAmount,
-      totalAmount,
-      dueAmount: totalAmount,
+      totalAmount: finalAmount,
+      convenienceFee,
+      paymentMethod,
+      razorpayOrderId: razorpayOrder?.id,
+      isPrepaid: paymentMethod === "RAZORPAY",
+      dueAmount: paymentMethod === "RAZORPAY" ? finalAmount : finalAmount, // Will be updated after payment
       notes,
       deliveryDate,
       deliveryAddress: deliveryAddress || user.getFullAddress()
     });
     
-    // Update user's current due
-    user.currentDue = newDue;
-    await user.save();
+    // Update user's current due only for CREDIT and COD
+    if (paymentMethod === "CREDIT" || paymentMethod === "COD") {
+      user.currentDue += finalAmount;
+      await user.save();
+    }
+    
+    // For Razorpay, return order with Razorpay details
+    if (paymentMethod === "RAZORPAY" && razorpayOrder) {
+      return res.status(201).json({
+        success: true,
+        message: "Order created. Please complete payment.",
+        data: {
+          order,
+          razorpay: {
+            orderId: razorpayOrder.id,
+            amount: razorpayOrder.amount,
+            currency: razorpayOrder.currency,
+            key: process.env.RAZORPAY_KEY_ID
+          }
+        }
+      });
+    }
     
     res.status(201).json({
       success: true,
@@ -371,6 +435,72 @@ exports.generateInvoice = async (req, res) => {
         ? "Invoice generated and sent to customer" 
         : "Invoice generated",
       data: invoice
+    });
+    
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+/**
+ * @desc    Verify Razorpay payment
+ * @route   POST /api/orders/:id/verify-payment
+ * @access  Private (User)
+ */
+exports.verifyRazorpayPayment = async (req, res) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+    const orderId = req.params.id;
+    
+    // Find the order
+    const order = await Order.findById(orderId);
+    
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found"
+      });
+    }
+    
+    // Verify order belongs to user
+    if (order.userId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized"
+      });
+    }
+    
+    // Verify Razorpay signature
+    const body = razorpay_order_id + "|" + razorpay_payment_id;
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(body.toString())
+      .digest("hex");
+    
+    if (expectedSignature !== razorpay_signature) {
+      return res.status(400).json({
+        success: false,
+        message: "Payment verification failed. Invalid signature."
+      });
+    }
+    
+    // Update order with payment details
+    order.razorpayPaymentId = razorpay_payment_id;
+    order.razorpaySignature = razorpay_signature;
+    order.isPrepaid = true;
+    order.paidAmount = order.totalAmount;
+    order.dueAmount = 0;
+    order.paymentStatus = "PAID";
+    order.status = "CONFIRMED";
+    await order.save();
+    
+    res.status(200).json({
+      success: true,
+      message: "Payment verified successfully",
+      data: order
     });
     
   } catch (error) {

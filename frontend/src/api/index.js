@@ -63,6 +63,7 @@ export const orderAPI = {
   updateStatus: (id, status) => api.put(`/orders/${id}/status`, { status }),
   cancel: (id) => api.put(`/orders/${id}/cancel`),
   generateInvoice: (id, data) => api.post(`/orders/${id}/invoice`, data),
+  verifyPayment: (id, data) => api.post(`/orders/${id}/verify-payment`, data),
 };
 
 // Invoice APIs

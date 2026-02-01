@@ -54,6 +54,24 @@ const orderSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  // Payment method selection
+  paymentMethod: {
+    type: String,
+    enum: ["COD", "RAZORPAY", "CREDIT"],
+    default: "CREDIT"
+  },
+  convenienceFee: {
+    type: Number,
+    default: 0
+  },
+  // Razorpay details
+  razorpayOrderId: String,
+  razorpayPaymentId: String,
+  razorpaySignature: String,
+  isPrepaid: {
+    type: Boolean,
+    default: false
+  },
   status: {
     type: String,
     enum: ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"],

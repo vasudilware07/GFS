@@ -1,19 +1,92 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiTrash2, FiPlus, FiMinus, FiShoppingBag, FiArrowRight, FiTruck, FiShield } from 'react-icons/fi';
+import { FiTrash2, FiPlus, FiMinus, FiShoppingBag, FiArrowRight, FiTruck, FiShield, FiCreditCard, FiDollarSign } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { useCartStore, useAuthStore } from '../store';
 import { orderAPI } from '../api';
 import { ButtonLoading } from '../components/Loading';
+
+// COD convenience fee
+const COD_FEE = 10;
 
 export default function Cart() {
   const { items, removeItem, updateQuantity, clearCart, getTotal } = useCartStore();
   const { isAuthenticated } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [notes, setNotes] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('CREDIT');
   const navigate = useNavigate();
   
   const total = getTotal();
+  const gstAmount = total * 0.18;
+  const convenienceFee = paymentMethod === 'COD' ? COD_FEE : 0;
+  const finalTotal = total + gstAmount + convenienceFee;
+
+  // Load Razorpay script
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if (window.Razorpay) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  // Handle Razorpay payment
+  const handleRazorpayPayment = async (orderData) => {
+    const loaded = await loadRazorpayScript();
+    if (!loaded) {
+      toast.error('Failed to load payment gateway. Please try again.');
+      return false;
+    }
+
+    return new Promise((resolve) => {
+      const options = {
+        key: orderData.razorpay.key,
+        amount: orderData.razorpay.amount,
+        currency: orderData.razorpay.currency,
+        name: 'Ganesh Fruit Suppliers',
+        description: 'Order Payment',
+        order_id: orderData.razorpay.orderId,
+        handler: async (response) => {
+          try {
+            // Verify payment on backend
+            await orderAPI.verifyPayment(orderData.order._id, {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+            resolve(true);
+          } catch (error) {
+            toast.error('Payment verification failed');
+            resolve(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            toast.error('Payment cancelled');
+            resolve(false);
+          }
+        },
+        prefill: {
+          name: 'Customer',
+          email: '',
+          contact: ''
+        },
+        theme: {
+          color: '#16a34a'
+        }
+      };
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.open();
+    });
+  };
 
   const handleQuantityChange = (productId, newQuantity) => {
     if (newQuantity < 1) {
@@ -47,12 +120,26 @@ export default function Cart() {
       const res = await orderAPI.create({
         items: orderItems,
         notes,
+        paymentMethod,
       });
 
-      clearCart();
-      toast.success('Order placed successfully!');
-      navigate(`/orders/${res.data.data._id}`);
+      // If Razorpay payment method, open payment gateway
+      if (paymentMethod === 'RAZORPAY' && res.data.data.razorpay) {
+        const paymentSuccess = await handleRazorpayPayment(res.data.data);
+        if (paymentSuccess) {
+          clearCart();
+          toast.success('Payment successful! Order placed.');
+          navigate(`/orders/${res.data.data.order._id}`);
+        }
+      } else {
+        clearCart();
+        toast.success('Order placed successfully!');
+        // Handle both response structures
+        const orderId = res.data.data.order?._id || res.data.data._id;
+        navigate(`/orders/${orderId}`);
+      }
     } catch (error) {
+      console.error('Order error:', error.response?.data);
       toast.error(error.response?.data?.message || 'Failed to place order');
     } finally {
       setLoading(false);
@@ -205,19 +292,99 @@ export default function Cart() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">GST (18%)</span>
-                  <span className="font-medium">₹{(total * 0.18).toLocaleString('en-IN')}</span>
+                  <span className="font-medium">₹{gstAmount.toLocaleString('en-IN')}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Delivery</span>
                   <span className="font-medium text-green-600">FREE</span>
                 </div>
+                {convenienceFee > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">COD Fee</span>
+                    <span className="font-medium">₹{convenienceFee}</span>
+                  </div>
+                )}
               </div>
 
               <hr className="my-4" />
 
               <div className="flex justify-between text-lg font-bold mb-6">
                 <span>Total</span>
-                <span className="text-green-600">₹{(total * 1.18).toLocaleString('en-IN')}</span>
+                <span className="text-green-600">₹{finalTotal.toLocaleString('en-IN')}</span>
+              </div>
+
+              {/* Payment Method Selection */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-3">Payment Method</label>
+                <div className="space-y-2">
+                  {/* Credit (Pay Later) */}
+                  <label className={`flex items-center p-3 border rounded-lg cursor-pointer transition-all ${paymentMethod === 'CREDIT' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="CREDIT"
+                      checked={paymentMethod === 'CREDIT'}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      className="hidden"
+                    />
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                      <FiCreditCard className="text-blue-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">Credit (Pay Later)</p>
+                      <p className="text-xs text-gray-500">Add to your credit account</p>
+                    </div>
+                    {paymentMethod === 'CREDIT' && (
+                      <span className="text-green-600">✓</span>
+                    )}
+                  </label>
+
+                  {/* Pay Online (Razorpay) */}
+                  <label className={`flex items-center p-3 border rounded-lg cursor-pointer transition-all ${paymentMethod === 'RAZORPAY' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="RAZORPAY"
+                      checked={paymentMethod === 'RAZORPAY'}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      className="hidden"
+                    />
+                    <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center mr-3">
+                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="#6366f1">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">Pay Online</p>
+                      <p className="text-xs text-gray-500">UPI, Cards, Net Banking, Wallets</p>
+                    </div>
+                    {paymentMethod === 'RAZORPAY' && (
+                      <span className="text-green-600">✓</span>
+                    )}
+                  </label>
+
+                  {/* COD */}
+                  <label className={`flex items-center p-3 border rounded-lg cursor-pointer transition-all ${paymentMethod === 'COD' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="COD"
+                      checked={paymentMethod === 'COD'}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      className="hidden"
+                    />
+                    <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center mr-3">
+                      <FiDollarSign className="text-yellow-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">Cash on Delivery</p>
+                      <p className="text-xs text-gray-500">+₹{COD_FEE} convenience fee</p>
+                    </div>
+                    {paymentMethod === 'COD' && (
+                      <span className="text-green-600">✓</span>
+                    )}
+                  </label>
+                </div>
               </div>
 
               {/* Order Notes */}

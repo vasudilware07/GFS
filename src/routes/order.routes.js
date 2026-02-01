@@ -11,6 +11,7 @@ router.post("/", orderController.createOrder);
 router.get("/", orderController.getAllOrders);
 router.get("/:id", orderController.getOrder);
 router.put("/:id/cancel", orderController.cancelOrder);
+router.post("/:id/verify-payment", orderController.verifyRazorpayPayment);
 
 // Admin only routes
 router.put("/:id/status", adminOnly, orderController.updateOrderStatus);
