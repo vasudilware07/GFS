@@ -1,4 +1,6 @@
 const { Product } = require("../models");
+const fs = require("fs");
+const path = require("path");
 
 /**
  * @desc    Get all products
@@ -82,7 +84,49 @@ exports.getProduct = async (req, res) => {
  */
 exports.createProduct = async (req, res) => {
   try {
-    const product = await Product.create(req.body);
+    const productData = { ...req.body };
+    
+    // Map 'price' to 'pricePerUnit' if sent from frontend
+    if (productData.price && !productData.pricePerUnit) {
+      productData.pricePerUnit = parseFloat(productData.price);
+      delete productData.price;
+    }
+    
+    // Handle uploaded files (when using upload.fields())
+    const images = [];
+    const videos = [];
+    
+    if (req.files) {
+      // Handle images
+      if (req.files.images && req.files.images.length > 0) {
+        req.files.images.forEach(file => {
+          const fileUrl = `/uploads/${file.destination.split("uploads/")[1]}/${file.filename}`;
+          images.push(fileUrl);
+        });
+      }
+      
+      // Handle videos
+      if (req.files.videos && req.files.videos.length > 0) {
+        req.files.videos.forEach(file => {
+          const fileUrl = `/uploads/${file.destination.split("uploads/")[1]}/${file.filename}`;
+          videos.push({
+            url: fileUrl,
+            thumbnail: null,
+            duration: null
+          });
+        });
+      }
+    }
+    
+    if (images.length > 0) {
+      productData.images = images;
+      productData.image = images[0]; // Set first image as main image
+    }
+    if (videos.length > 0) {
+      productData.videos = videos;
+    }
+    
+    const product = await Product.create(productData);
     
     res.status(201).json({
       success: true,
@@ -105,10 +149,138 @@ exports.createProduct = async (req, res) => {
  */
 exports.updateProduct = async (req, res) => {
   try {
-    const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
+    const productData = { ...req.body };
+    
+    // Map 'price' to 'pricePerUnit' if sent from frontend
+    if (productData.price && !productData.pricePerUnit) {
+      productData.pricePerUnit = parseFloat(productData.price);
+      delete productData.price;
+    }
+    
+    // Get existing product
+    const existingProduct = await Product.findById(req.params.id);
+    if (!existingProduct) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found"
+      });
+    }
+    
+    // Parse existing media arrays from request
+    let existingImages = [];
+    let existingVideos = [];
+    let imagesToDelete = [];
+    let videosToDelete = [];
+    
+    try {
+      if (req.body.existingImages) {
+        existingImages = JSON.parse(req.body.existingImages);
+      }
+      if (req.body.existingVideos) {
+        existingVideos = JSON.parse(req.body.existingVideos);
+      }
+      if (req.body.imagesToDelete) {
+        imagesToDelete = JSON.parse(req.body.imagesToDelete);
+      }
+      if (req.body.videosToDelete) {
+        videosToDelete = JSON.parse(req.body.videosToDelete);
+      }
+    } catch (e) {
+      console.log("Error parsing media arrays:", e.message);
+    }
+    
+    // Clean up these fields from productData
+    delete productData.existingImages;
+    delete productData.existingVideos;
+    delete productData.imagesToDelete;
+    delete productData.videosToDelete;
+    
+    // Handle uploaded files (when using upload.fields())
+    const newImages = [];
+    const newVideos = [];
+    
+    if (req.files) {
+      // Handle images
+      if (req.files.images && req.files.images.length > 0) {
+        req.files.images.forEach(file => {
+          const fileUrl = `/uploads/${file.destination.split("uploads/")[1]}/${file.filename}`;
+          newImages.push(fileUrl);
+        });
+      }
+      
+      // Handle videos
+      if (req.files.videos && req.files.videos.length > 0) {
+        req.files.videos.forEach(file => {
+          const fileUrl = `/uploads/${file.destination.split("uploads/")[1]}/${file.filename}`;
+          newVideos.push({
+            url: fileUrl,
+            thumbnail: null,
+            duration: null
+          });
+        });
+      }
+    }
+    
+    // Combine existing (kept) images with new ones
+    productData.images = [...existingImages, ...newImages];
+    productData.image = productData.images[0] || null;
+    
+    // Combine existing (kept) videos with new ones
+    productData.videos = [...existingVideos, ...newVideos];
+    
+    // Delete files marked for deletion
+    imagesToDelete.forEach(imgUrl => {
+      try {
+        const filePath = path.join(process.cwd(), imgUrl);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (e) {
+        console.log("Could not delete image file:", e.message);
+      }
+    });
+    
+    videosToDelete.forEach(videoUrl => {
+      try {
+        const url = typeof videoUrl === 'object' ? videoUrl.url : videoUrl;
+        const filePath = path.join(process.cwd(), url);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (e) {
+        console.log("Could not delete video file:", e.message);
+      }
+    });
+    
+    const product = await Product.findByIdAndUpdate(req.params.id, productData, {
       new: true,
       runValidators: true
     });
+    
+    res.json({
+      success: true,
+      message: "Product updated",
+      data: product
+    });
+    
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+/**
+ * @desc    Delete product media (image/video)
+ * @route   DELETE /api/products/:id/media
+ * @access  Admin
+ */
+exports.deleteProductMedia = async (req, res) => {
+  try {
+    const { type, url } = req.body; // type: 'image' or 'video'
+    
+    const product = await Product.findById(req.params.id);
     
     if (!product) {
       return res.status(404).json({
@@ -117,9 +289,30 @@ exports.updateProduct = async (req, res) => {
       });
     }
     
+    if (type === "image") {
+      product.images = product.images.filter(img => img !== url);
+      if (product.image === url) {
+        product.image = product.images[0] || null;
+      }
+    } else if (type === "video") {
+      product.videos = product.videos.filter(vid => vid.url !== url);
+    }
+    
+    await product.save();
+    
+    // Try to delete the file from disk
+    try {
+      const filePath = path.join(process.cwd(), url);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch (e) {
+      console.log("Could not delete file:", e.message);
+    }
+    
     res.json({
       success: true,
-      message: "Product updated",
+      message: "Media deleted",
       data: product
     });
     

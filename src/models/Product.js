@@ -42,9 +42,20 @@ const productSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  // Multiple images support
+  images: [{
+    type: String
+  }],
+  // Legacy single image field
   image: {
     type: String
   },
+  // Video for quality showcase
+  videos: [{
+    url: String,
+    thumbnail: String,
+    duration: Number // in seconds
+  }],
   hsnCode: {
     type: String // GST HSN code for fruits
   },

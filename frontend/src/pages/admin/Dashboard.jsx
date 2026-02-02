@@ -50,30 +50,30 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatsCard
           title="Total Revenue"
-          value={`₹${(stats?.totalRevenue || 0).toLocaleString('en-IN')}`}
+          value={`₹${(stats?.thisMonth?.sales || 0).toLocaleString('en-IN')}`}
           icon={FiDollarSign}
-          trend={stats?.revenueTrend}
+          trend={stats?.thisMonth?.growth}
           color="green"
         />
         <StatsCard
           title="Total Orders"
-          value={stats?.totalOrders || 0}
+          value={stats?.today?.orders || 0}
           icon={FiShoppingCart}
-          trend={stats?.ordersTrend}
+          subtitle="Today's orders"
           color="blue"
         />
         <StatsCard
           title="Total Customers"
-          value={stats?.totalCustomers || 0}
+          value={stats?.customers?.active || 0}
           icon={FiUsers}
-          trend={stats?.customersTrend}
+          subtitle="Active customers"
           color="purple"
         />
         <StatsCard
           title="Pending Invoices"
-          value={stats?.pendingInvoices || 0}
+          value={stats?.dues?.overdueCount || 0}
           icon={FiFileText}
-          subtitle={`₹${(stats?.pendingAmount || 0).toLocaleString('en-IN')} due`}
+          subtitle={`₹${(stats?.dues?.total || 0).toLocaleString('en-IN')} due`}
           color="yellow"
         />
       </div>

@@ -71,6 +71,15 @@ exports.getDashboard = async (req, res) => {
     // Pending orders
     const pendingOrders = await Order.countDocuments({ status: "PENDING" });
     
+    // Orders by status
+    const ordersByStatusResult = await Order.aggregate([
+      { $group: { _id: "$status", count: { $sum: 1 } } }
+    ]);
+    const ordersByStatus = {};
+    ordersByStatusResult.forEach(item => {
+      ordersByStatus[item._id] = item.count;
+    });
+    
     res.json({
       success: true,
       data: {
@@ -97,7 +106,8 @@ exports.getDashboard = async (req, res) => {
         },
         orders: {
           pending: pendingOrders
-        }
+        },
+        ordersByStatus
       }
     });
     

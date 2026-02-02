@@ -75,6 +75,74 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // KYC (Know Your Customer) Fields
+  kyc: {
+    isComplete: {
+      type: Boolean,
+      default: false
+    },
+    status: {
+      type: String,
+      enum: ["PENDING", "SUBMITTED", "APPROVED", "REJECTED"],
+      default: "PENDING"
+    },
+    // User type - business or individual
+    userType: {
+      type: String,
+      enum: ["BUSINESS", "INDIVIDUAL"],
+      default: "BUSINESS"
+    },
+    // Phone number for KYC
+    phone: String,
+    submittedAt: Date,
+    verifiedAt: Date,
+    verifiedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User"
+    },
+    rejectionReason: String,
+    // Business Documents (only ownerPhoto and aadharCard are required)
+    documents: {
+      ownerPhoto: String,
+      aadharCard: String,
+      shopPhoto: String,
+      gstCertificate: String,
+      panCard: String,
+      businessLicense: String
+    },
+    // Business Address
+    businessAddress: {
+      street: String,
+      city: String,
+      state: String,
+      pincode: String
+    },
+    // Delivery Address
+    deliveryAddress: {
+      street: String,
+      city: String,
+      state: String,
+      pincode: String
+    },
+    sameAsBusinessAddress: {
+      type: Boolean,
+      default: false
+    },
+    // Additional Business Info
+    businessDetails: {
+      businessType: {
+        type: String,
+        enum: ["RETAILER", "WHOLESALER", "HOTEL_RESTAURANT", "CATERER", "SUPERMARKET", "INDIVIDUAL", "OTHER"]
+      },
+      yearsInBusiness: Number,
+      averageMonthlyPurchase: Number,
+      referenceContact: {
+        name: String,
+        phone: String,
+        relation: String
+      }
+    }
+  },
   lastLogin: Date
 }, { timestamps: true });
 

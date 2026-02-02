@@ -47,9 +47,15 @@ export const authAPI = {
 export const productAPI = {
   getAll: (params) => api.get('/products', { params }),
   getOne: (id) => api.get(`/products/${id}`),
-  create: (data) => api.post('/products', data),
-  update: (id, data) => api.put(`/products/${id}`, data),
+  getById: (id) => api.get(`/products/${id}`),
+  create: (formData) => api.post('/products', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  update: (id, formData) => api.put(`/products/${id}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
   updateStock: (id, data) => api.put(`/products/${id}/stock`, data),
+  deleteMedia: (id, data) => api.delete(`/products/${id}/media`, { data }),
   delete: (id) => api.delete(`/products/${id}`),
   getLowStock: () => api.get('/products/admin/low-stock'),
 };
@@ -99,6 +105,20 @@ export const userAPI = {
   updateCreditLimit: (id, creditLimit) => api.put(`/users/${id}/credit-limit`, { creditLimit }),
   delete: (id) => api.delete(`/users/${id}`),
   getWithDues: () => api.get('/users/with-dues'),
+};
+
+// KYC APIs
+export const kycAPI = {
+  getStatus: () => api.get('/kyc/status'),
+  submit: (formData) => api.post('/kyc/submit', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  // Admin
+  getAll: (params) => api.get('/kyc/admin/all', { params }),
+  getPendingCount: () => api.get('/kyc/admin/pending-count'),
+  getDetails: (userId) => api.get(`/kyc/admin/${userId}`),
+  approve: (userId) => api.put(`/kyc/admin/${userId}/approve`),
+  reject: (userId, reason) => api.put(`/kyc/admin/${userId}/reject`, { reason }),
 };
 
 // Report APIs (Admin)

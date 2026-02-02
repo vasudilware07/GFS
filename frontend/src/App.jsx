@@ -29,6 +29,10 @@ import AdminUsers from './pages/admin/Users';
 import AdminInvoices from './pages/admin/Invoices';
 import AdminPayments from './pages/admin/Payments';
 import AdminReports from './pages/admin/Reports';
+import KYCManagement from './pages/admin/KYCManagement';
+
+// KYC Page
+import KYCForm from './pages/KYCForm';
 
 // Protected Route Component
 function ProtectedRoute({ children }) {
@@ -36,6 +40,27 @@ function ProtectedRoute({ children }) {
   
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+  
+  return children;
+}
+
+// KYC Protected Route - requires completed KYC for orders/cart
+function KYCProtectedRoute({ children }) {
+  const { isAuthenticated, user } = useAuthStore();
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  // Admin users don't need KYC
+  if (user?.role === 'ADMIN') {
+    return children;
+  }
+  
+  // Check if KYC is complete (approved)
+  if (!user?.kyc?.isComplete || user?.kyc?.status !== 'APPROVED') {
+    return <Navigate to="/kyc" replace />;
   }
   
   return children;
@@ -116,15 +141,20 @@ function App() {
           } />
           
           {/* Protected Customer Routes */}
+          <Route path="kyc" element={
+            <ProtectedRoute>
+              <KYCForm />
+            </ProtectedRoute>
+          } />
           <Route path="cart" element={
             <ProtectedRoute>
               <Cart />
             </ProtectedRoute>
           } />
           <Route path="orders" element={
-            <ProtectedRoute>
+            <KYCProtectedRoute>
               <Orders />
-            </ProtectedRoute>
+            </KYCProtectedRoute>
           } />
           <Route path="orders/:id" element={
             <ProtectedRoute>
@@ -132,14 +162,14 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="invoices" element={
-            <ProtectedRoute>
+            <KYCProtectedRoute>
               <Invoices />
-            </ProtectedRoute>
+            </KYCProtectedRoute>
           } />
           <Route path="invoices/:id" element={
-            <ProtectedRoute>
+            <KYCProtectedRoute>
               <Invoices />
-            </ProtectedRoute>
+            </KYCProtectedRoute>
           } />
           <Route path="profile" element={
             <ProtectedRoute>
@@ -166,6 +196,7 @@ function App() {
           <Route path="invoices/:id" element={<AdminInvoices />} />
           <Route path="payments" element={<AdminPayments />} />
           <Route path="reports" element={<AdminReports />} />
+          <Route path="kyc" element={<KYCManagement />} />
         </Route>
 
         {/* 404 Fallback */}

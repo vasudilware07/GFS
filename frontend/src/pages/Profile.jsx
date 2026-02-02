@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { FiUser, FiMail, FiPhone, FiMapPin, FiEdit2, FiSave, FiLock, FiShoppingBag, FiFileText, FiBriefcase } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { userAPI, authAPI } from '../api';
@@ -128,20 +129,20 @@ export default function Profile() {
             <div className="bg-white rounded-xl shadow-sm p-6 mt-6">
               <h3 className="font-bold text-gray-900 mb-4">Quick Stats</h3>
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <Link to="/orders" className="flex items-center justify-between hover:bg-gray-50 p-2 -mx-2 rounded-lg transition-colors">
                   <div className="flex items-center gap-2 text-gray-600">
                     <FiShoppingBag className="w-4 h-4" />
                     <span>Total Orders</span>
                   </div>
                   <span className="font-bold">{profile?.orderCount || 0}</span>
-                </div>
-                <div className="flex items-center justify-between">
+                </Link>
+                <Link to="/invoices" className="flex items-center justify-between hover:bg-gray-50 p-2 -mx-2 rounded-lg transition-colors">
                   <div className="flex items-center gap-2 text-gray-600">
                     <FiFileText className="w-4 h-4" />
                     <span>Invoices</span>
                   </div>
                   <span className="font-bold">{profile?.invoiceCount || 0}</span>
-                </div>
+                </Link>
               </div>
             </div>
           </div>

@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { FiShoppingCart, FiMinus, FiPlus, FiTruck, FiShield, FiPackage, FiArrowLeft } from 'react-icons/fi';
+import { FiShoppingCart, FiMinus, FiPlus, FiTruck, FiShield, FiPackage, FiArrowLeft, FiPlay, FiImage, FiVideo } from 'react-icons/fi';
 import { productAPI } from '../api';
 import { useCartStore } from '../store';
 import { PageLoading } from '../components/Loading';
 import toast from 'react-hot-toast';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const BASE_URL = API_URL.replace('/api', '');
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -12,7 +15,8 @@ export default function ProductDetail() {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
-  const [selectedImage, setSelectedImage] = useState(0);
+  const [selectedMedia, setSelectedMedia] = useState(0);
+  const [mediaType, setMediaType] = useState('image'); // 'image' or 'video'
   const { addItem, items } = useCartStore();
 
   useEffect(() => {
@@ -36,6 +40,12 @@ export default function ProductDetail() {
     toast.success(`Added ${quantity} ${product.unit} of ${product.name} to cart`);
   };
 
+  const getMediaUrl = (path) => {
+    if (!path) return '';
+    if (path.startsWith('http')) return path;
+    return `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+  };
+
   const isInCart = items.some(item => item.productId === product?._id);
 
   if (loading) return <PageLoading />;
@@ -44,6 +54,9 @@ export default function ProductDetail() {
   const images = product.images?.length > 0 
     ? product.images 
     : ['https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=600'];
+  
+  const videos = product.videos || [];
+  const hasVideos = videos.length > 0;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -57,26 +70,89 @@ export default function ProductDetail() {
         </button>
 
         <div className="grid lg:grid-cols-2 gap-8">
-          {/* Product Images */}
+          {/* Product Media */}
           <div>
+            {/* Main Media Display */}
             <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
-              <img
-                src={images[selectedImage]}
-                alt={product.name}
-                className="w-full aspect-square object-cover rounded-lg"
-              />
+              {mediaType === 'image' ? (
+                <img
+                  src={getMediaUrl(images[selectedMedia])}
+                  alt={product.name}
+                  className="w-full aspect-square object-cover rounded-lg"
+                />
+              ) : (
+                <video
+                  src={getMediaUrl(videos[selectedMedia]?.url || videos[selectedMedia])}
+                  controls
+                  className="w-full aspect-square object-cover rounded-lg bg-black"
+                  poster={videos[selectedMedia]?.thumbnail}
+                />
+              )}
             </div>
-            {images.length > 1 && (
+            
+            {/* Media Type Tabs (if has videos) */}
+            {hasVideos && (
+              <div className="flex gap-2 mb-4">
+                <button
+                  onClick={() => { setMediaType('image'); setSelectedMedia(0); }}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                    mediaType === 'image' 
+                      ? 'bg-green-600 text-white' 
+                      : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <FiImage className="w-4 h-4" />
+                  Images ({images.length})
+                </button>
+                <button
+                  onClick={() => { setMediaType('video'); setSelectedMedia(0); }}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                    mediaType === 'video' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <FiVideo className="w-4 h-4" />
+                  Videos ({videos.length})
+                </button>
+              </div>
+            )}
+            
+            {/* Thumbnails */}
+            {mediaType === 'image' && images.length > 1 && (
               <div className="flex gap-2 overflow-x-auto pb-2">
                 {images.map((img, index) => (
                   <button
                     key={index}
-                    onClick={() => setSelectedImage(index)}
+                    onClick={() => setSelectedMedia(index)}
                     className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 ${
-                      selectedImage === index ? 'border-green-600' : 'border-gray-200'
+                      selectedMedia === index ? 'border-green-600' : 'border-gray-200'
                     }`}
                   >
-                    <img src={img} alt={`${product.name} ${index + 1}`} className="w-full h-full object-cover" />
+                    <img src={getMediaUrl(img)} alt={`${product.name} ${index + 1}`} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
+            
+            {mediaType === 'video' && videos.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                {videos.map((video, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setSelectedMedia(index)}
+                    className={`flex-shrink-0 w-28 h-20 rounded-lg overflow-hidden border-2 relative ${
+                      selectedMedia === index ? 'border-blue-600' : 'border-gray-200'
+                    }`}
+                  >
+                    <video 
+                      src={getMediaUrl(video?.url || video)} 
+                      className="w-full h-full object-cover"
+                      muted
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                      <FiPlay className="w-6 h-6 text-white" />
+                    </div>
                   </button>
                 ))}
               </div>

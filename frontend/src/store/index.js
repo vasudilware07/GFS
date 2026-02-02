@@ -20,7 +20,11 @@ export const useAuthStore = create(
       },
       
       updateUser: (userData) => {
-        set({ user: { ...get().user, ...userData } });
+        set({ user: userData });
+      },
+      
+      setUser: (user) => {
+        set({ user });
       },
       
       isAdmin: () => get().user?.role === 'ADMIN',

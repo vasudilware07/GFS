@@ -121,7 +121,11 @@ exports.login = async (req, res) => {
           ownerName: user.ownerName,
           email: user.email,
           role: user.role,
-          isBlocked: user.isBlocked
+          isBlocked: user.isBlocked,
+          kyc: {
+            isComplete: user.kyc?.isComplete || false,
+            status: user.kyc?.status || "PENDING"
+          }
         },
         token
       }
@@ -164,7 +168,7 @@ exports.getMe = async (req, res) => {
  */
 exports.updateProfile = async (req, res) => {
   try {
-    const allowedFields = ["shopName", "ownerName", "phone", "gstNumber", "address"];
+    const allowedFields = ["shopName", "ownerName", "phone", "gstNumber"];
     const updates = {};
     
     allowedFields.forEach(field => {
@@ -172,6 +176,16 @@ exports.updateProfile = async (req, res) => {
         updates[field] = req.body[field];
       }
     });
+    
+    // Handle nested address object
+    if (req.body.address) {
+      updates.address = {
+        street: req.body.address.street || '',
+        city: req.body.address.city || '',
+        state: req.body.address.state || '',
+        pincode: req.body.address.pincode || ''
+      };
+    }
     
     const user = await User.findByIdAndUpdate(req.user._id, updates, {
       new: true,

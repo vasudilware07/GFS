@@ -52,7 +52,7 @@ export default function AdminOrders() {
 
   const filteredOrders = orders.filter(order => {
     const matchSearch = order.orderNumber?.toLowerCase().includes(search.toLowerCase()) ||
-      order.customer?.shopName?.toLowerCase().includes(search.toLowerCase());
+      order.userId?.shopName?.toLowerCase().includes(search.toLowerCase());
     const matchStatus = status === 'ALL' || order.status === status;
     return matchSearch && matchStatus;
   });
@@ -142,8 +142,8 @@ export default function AdminOrders() {
                       <p className="text-sm text-gray-500">{order.items?.length} items</p>
                     </td>
                     <td className="py-4 px-6">
-                      <p className="font-medium text-gray-900">{order.customer?.shopName}</p>
-                      <p className="text-sm text-gray-500">{order.customer?.ownerName}</p>
+                      <p className="font-medium text-gray-900">{order.userId?.shopName}</p>
+                      <p className="text-sm text-gray-500">{order.userId?.ownerName}</p>
                     </td>
                     <td className="py-4 px-6 text-gray-600">
                       {new Date(order.createdAt).toLocaleDateString('en-IN', {
@@ -271,12 +271,12 @@ function OrderDetail({ order, onStatusUpdate, onOrderUpdate }) {
         <div className="bg-white rounded-xl shadow-sm p-6">
           <h2 className="font-bold text-gray-900 mb-4">Customer Information</h2>
           <div className="space-y-2 text-gray-600">
-            <p><strong>Shop:</strong> {order.customer?.shopName}</p>
-            <p><strong>Owner:</strong> {order.customer?.ownerName}</p>
-            <p><strong>Email:</strong> {order.customer?.email}</p>
-            <p><strong>Phone:</strong> {order.customer?.phone}</p>
-            {order.customer?.gstNumber && (
-              <p><strong>GST:</strong> {order.customer?.gstNumber}</p>
+            <p><strong>Shop:</strong> {order.userId?.shopName}</p>
+            <p><strong>Owner:</strong> {order.userId?.ownerName}</p>
+            <p><strong>Email:</strong> {order.userId?.email}</p>
+            <p><strong>Phone:</strong> {order.userId?.phone}</p>
+            {order.userId?.gstNumber && (
+              <p><strong>GST:</strong> {order.userId?.gstNumber}</p>
             )}
           </div>
         </div>
@@ -288,9 +288,9 @@ function OrderDetail({ order, onStatusUpdate, onOrderUpdate }) {
             Delivery Address
           </h2>
           <p className="text-gray-600">
-            {order.customer?.address?.street}<br />
-            {order.customer?.address?.city}, {order.customer?.address?.state}<br />
-            {order.customer?.address?.pincode}
+            {order.userId?.address?.street}<br />
+            {order.userId?.address?.city}, {order.userId?.address?.state}<br />
+            {order.userId?.address?.pincode}
           </p>
         </div>
       </div>

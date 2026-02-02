@@ -37,7 +37,7 @@ export default function Invoices() {
 
   const handleDownload = async (invoiceId) => {
     try {
-      const res = await invoiceAPI.downloadPDF(invoiceId);
+      const res = await invoiceAPI.download(invoiceId);
       const blob = new Blob([res.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');

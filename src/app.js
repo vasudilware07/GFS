@@ -22,6 +22,9 @@ app.use(passport.initialize());;
 // Serve static files (invoices)
 app.use("/invoices", express.static(path.join(__dirname, "../invoices")));
 
+// Serve static files (uploads - images, videos, documents)
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+
 // API Routes
 app.use("/api", routes);
 
@@ -39,6 +42,7 @@ app.get("/", (req, res) => {
       invoices: "/api/invoices",
       payments: "/api/payments",
       reports: "/api/reports",
+      kyc: "/api/kyc",
       health: "/api/health"
     }
   });

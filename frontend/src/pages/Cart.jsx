@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { FiTrash2, FiPlus, FiMinus, FiShoppingBag, FiArrowRight, FiTruck, FiShield, FiCreditCard, FiDollarSign } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { useCartStore, useAuthStore } from '../store';
-import { orderAPI } from '../api';
+import { orderAPI, authAPI } from '../api';
 import { ButtonLoading } from '../components/Loading';
 
 // COD convenience fee
@@ -11,7 +11,7 @@ const COD_FEE = 10;
 
 export default function Cart() {
   const { items, removeItem, updateQuantity, clearCart, getTotal } = useCartStore();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user, updateUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('CREDIT');
@@ -112,6 +112,19 @@ export default function Cart() {
     setLoading(true);
 
     try {
+      // Refresh user data to get latest KYC status
+      const userRes = await authAPI.getMe();
+      const latestUser = userRes.data.data;
+      updateUser(latestUser);
+
+      // Check KYC status (admin users don't need KYC)
+      if (latestUser?.role !== 'ADMIN' && (!latestUser?.kyc?.isComplete || latestUser?.kyc?.status !== 'APPROVED')) {
+        toast.error('Please complete KYC verification to place orders');
+        navigate('/kyc');
+        setLoading(false);
+        return;
+      }
+
       const orderItems = items.map(item => ({
         productId: item.productId,
         quantity: item.quantity,

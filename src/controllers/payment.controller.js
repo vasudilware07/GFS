@@ -46,7 +46,7 @@ exports.createPayment = async (req, res) => {
     
     // Create payment
     const payment = await Payment.create({
-      invoiceId,
+      invoiceId: invoice._id,
       orderId: invoice.orderId,
       userId: invoice.userId._id,
       amount,
