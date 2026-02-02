@@ -16,6 +16,11 @@ module.exports = {
     pass: process.env.SMTP_PASS,
     from: process.env.EMAIL_FROM
   },
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    apiKey: process.env.CLOUDINARY_API_KEY,
+    apiSecret: process.env.CLOUDINARY_API_SECRET
+  },
   business: {
     name: process.env.BUSINESS_NAME || "LBR Fruit Suppliers",
     address: process.env.BUSINESS_ADDRESS || "Mumbai, Maharashtra",

@@ -1,6 +1,7 @@
 const { Product } = require("../models");
 const fs = require("fs");
 const path = require("path");
+const { useCloudinary } = require("../middlewares/upload.middleware");
 
 /**
  * @desc    Get all products
@@ -100,7 +101,8 @@ exports.createProduct = async (req, res) => {
       // Handle images
       if (req.files.images && req.files.images.length > 0) {
         req.files.images.forEach(file => {
-          const fileUrl = `/uploads/${file.destination.split("uploads/")[1]}/${file.filename}`;
+          // Cloudinary returns path with full URL, local returns filename
+          const fileUrl = useCloudinary ? file.path : `/uploads/${file.destination.split("uploads/")[1]}/${file.filename}`;
           images.push(fileUrl);
         });
       }
@@ -108,7 +110,7 @@ exports.createProduct = async (req, res) => {
       // Handle videos
       if (req.files.videos && req.files.videos.length > 0) {
         req.files.videos.forEach(file => {
-          const fileUrl = `/uploads/${file.destination.split("uploads/")[1]}/${file.filename}`;
+          const fileUrl = useCloudinary ? file.path : `/uploads/${file.destination.split("uploads/")[1]}/${file.filename}`;
           videos.push({
             url: fileUrl,
             thumbnail: null,
@@ -203,7 +205,8 @@ exports.updateProduct = async (req, res) => {
       // Handle images
       if (req.files.images && req.files.images.length > 0) {
         req.files.images.forEach(file => {
-          const fileUrl = `/uploads/${file.destination.split("uploads/")[1]}/${file.filename}`;
+          // Cloudinary returns path with full URL, local returns filename
+          const fileUrl = useCloudinary ? file.path : `/uploads/${file.destination.split("uploads/")[1]}/${file.filename}`;
           newImages.push(fileUrl);
         });
       }
@@ -211,7 +214,7 @@ exports.updateProduct = async (req, res) => {
       // Handle videos
       if (req.files.videos && req.files.videos.length > 0) {
         req.files.videos.forEach(file => {
-          const fileUrl = `/uploads/${file.destination.split("uploads/")[1]}/${file.filename}`;
+          const fileUrl = useCloudinary ? file.path : `/uploads/${file.destination.split("uploads/")[1]}/${file.filename}`;
           newVideos.push({
             url: fileUrl,
             thumbnail: null,

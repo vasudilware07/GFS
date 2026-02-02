@@ -1,6 +1,7 @@
 const { User } = require("../models");
 const transporter = require("../config/mail");
 const config = require("../config/env");
+const { useCloudinary } = require("../middlewares/upload.middleware");
 
 /**
  * Send KYC approval email
@@ -235,14 +236,15 @@ exports.submitKyc = async (req, res) => {
         Object.keys(req.files).forEach(fieldName => {
           const files = req.files[fieldName];
           if (files && files.length > 0) {
-            const fileUrl = `/uploads/kyc/documents/${files[0].filename}`;
+            // Cloudinary returns path with full URL, local returns filename
+            const fileUrl = useCloudinary ? files[0].path : `/uploads/kyc/documents/${files[0].filename}`;
             user.kyc.documents[fieldName] = fileUrl;
           }
         });
       } else {
         // If using upload.array()
         req.files.forEach(file => {
-          const fileUrl = `/uploads/kyc/documents/${file.filename}`;
+          const fileUrl = useCloudinary ? file.path : `/uploads/kyc/documents/${file.filename}`;
           user.kyc.documents[file.fieldname] = fileUrl;
         });
       }

@@ -137,7 +137,9 @@ export default function KYCForm() {
         const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
         Object.keys(res.data.data.documents).forEach(key => {
           if (res.data.data.documents[key]) {
-            docPreviews[key] = `${baseUrl}${res.data.data.documents[key]}`;
+            const docUrl = res.data.data.documents[key];
+            // Handle both Cloudinary URLs (full URL) and local paths
+            docPreviews[key] = docUrl.startsWith('http') ? docUrl : `${baseUrl}${docUrl}`;
           }
         });
         setPreviews(docPreviews);

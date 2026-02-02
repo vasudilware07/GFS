@@ -275,11 +275,14 @@ export default function KYCManagement() {
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h3 className="font-bold text-gray-900 mb-4">Uploaded Documents</h3>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {Object.entries(selectedUser.kyc.documents).map(([key, url]) => (
-                url && (
+              {Object.entries(selectedUser.kyc.documents).map(([key, url]) => {
+                if (!url) return null;
+                const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+                const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
+                return (
                   <a
                     key={key}
-                    href={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${url}`}
+                    href={fullUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block"
@@ -291,7 +294,7 @@ export default function KYCManagement() {
                         </div>
                       ) : (
                         <img
-                          src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${url}`}
+                          src={fullUrl}
                           alt={key}
                           className="w-full h-32 object-cover"
                         />
@@ -301,8 +304,8 @@ export default function KYCManagement() {
                       </p>
                     </div>
                   </a>
-                )
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
