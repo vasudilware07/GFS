@@ -134,9 +134,10 @@ export default function KYCForm() {
       // Set existing document previews
       if (res.data.data.documents) {
         const docPreviews = {};
+        const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
         Object.keys(res.data.data.documents).forEach(key => {
           if (res.data.data.documents[key]) {
-            docPreviews[key] = `http://localhost:5000${res.data.data.documents[key]}`;
+            docPreviews[key] = `${baseUrl}${res.data.data.documents[key]}`;
           }
         });
         setPreviews(docPreviews);

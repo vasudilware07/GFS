@@ -279,7 +279,7 @@ export default function KYCManagement() {
                 url && (
                   <a
                     key={key}
-                    href={`http://localhost:5000${url}`}
+                    href={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${url}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block"
@@ -291,7 +291,7 @@ export default function KYCManagement() {
                         </div>
                       ) : (
                         <img
-                          src={`http://localhost:5000${url}`}
+                          src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${url}`}
                           alt={key}
                           className="w-full h-32 object-cover"
                         />
