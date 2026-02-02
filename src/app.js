@@ -28,13 +28,19 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Initialize Passport
-app.use(passport.initialize());;
+app.use(passport.initialize());
 
-// Serve static files (invoices)
-app.use("/invoices", express.static(path.join(__dirname, "../invoices")));
+// Check if using Cloudinary for file storage
+const useCloudinary = config.cloudinary?.cloudName && config.cloudinary?.apiKey && config.cloudinary?.apiSecret;
 
-// Serve static files (uploads - images, videos, documents)
-app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+// Serve static files only in development (when not using Cloudinary)
+if (!useCloudinary) {
+  // Serve static files (invoices)
+  app.use("/invoices", express.static(path.join(__dirname, "../invoices")));
+
+  // Serve static files (uploads - images, videos, documents)
+  app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+}
 
 // API Routes
 app.use("/api", routes);
