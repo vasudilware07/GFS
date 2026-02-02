@@ -6,13 +6,24 @@ const path = require("path");
 require("dotenv").config();
 
 const passport = require("./config/passport");
+const config = require("./config/env");
 
 const routes = require("./routes");
 
 const app = express();
 
+// CORS configuration for production
+const corsOptions = {
+  origin: config.nodeEnv === 'production' 
+    ? [config.frontendUrl, /\.vercel\.app$/] 
+    : '*',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
