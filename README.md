@@ -1,4 +1,4 @@
-# 🍎 Ganesh Fruit Suppliers - B2B Wholesale Platform
+B2B Wholesale Platform
 
 A complete B2B ecommerce and billing management system for wholesale fruit business. Built with Node.js, Express, and MongoDB.
 
