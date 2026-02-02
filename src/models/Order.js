@@ -74,7 +74,7 @@ const orderSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"],
+    enum: ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"],
     default: "PENDING"
   },
   paymentStatus: {
@@ -92,7 +92,41 @@ const orderSchema = new mongoose.Schema({
   },
   notes: String,
   deliveryDate: Date,
-  deliveryAddress: String
+  deliveryAddress: String,
+  
+  // Delivery Person Assignment
+  deliveryPerson: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "DeliveryPerson"
+  },
+  deliveryAssignedAt: Date,
+  deliveryAssignedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User"
+  },
+  
+  // Delivery Verification
+  deliveryOTP: {
+    code: String,
+    expiresAt: Date,
+    verified: {
+      type: Boolean,
+      default: false
+    },
+    verifiedAt: Date
+  },
+  deliveryProofPhoto: {
+    type: String,
+    default: null
+  },
+  deliveryNotes: String,
+  deliveredAt: Date,
+  
+  // Delivery Person Earnings for this order
+  deliveryEarning: {
+    type: Number,
+    default: 0
+  }
 }, { timestamps: true });
 
 // Generate order number before saving

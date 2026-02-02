@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { 
   FiHome, FiPackage, FiShoppingCart, FiUsers, FiFileText, 
-  FiDollarSign, FiBarChart2, FiSettings, FiLogOut, FiMenu, FiX, FiUserCheck 
+  FiDollarSign, FiBarChart2, FiSettings, FiLogOut, FiMenu, FiX, FiUserCheck, FiTruck 
 } from 'react-icons/fi';
 import { useState } from 'react';
 import { useAuthStore } from '../store';
@@ -13,6 +13,8 @@ const sidebarLinks = [
   { path: '/admin/orders', icon: FiShoppingCart, label: 'Orders' },
   { path: '/admin/users', icon: FiUsers, label: 'Users' },
   { path: '/admin/kyc', icon: FiUserCheck, label: 'KYC Verification' },
+  { path: '/admin/delivery-persons', icon: FiTruck, label: 'Delivery Persons' },
+  { path: '/admin/delivery-orders', icon: FiTruck, label: 'Delivery Management' },
   { path: '/admin/invoices', icon: FiFileText, label: 'Invoices' },
   { path: '/admin/payments', icon: FiDollarSign, label: 'Payments' },
   { path: '/admin/reports', icon: FiBarChart2, label: 'Reports' },

@@ -9,6 +9,7 @@ const invoiceRoutes = require("./invoice.routes");
 const paymentRoutes = require("./payment.routes");
 const reportRoutes = require("./report.routes");
 const kycRoutes = require("./kyc.routes");
+const deliveryRoutes = require("./delivery.routes");
 
 // Mount routes
 router.use("/auth", authRoutes);
@@ -19,6 +20,7 @@ router.use("/invoices", invoiceRoutes);
 router.use("/payments", paymentRoutes);
 router.use("/reports", reportRoutes);
 router.use("/kyc", kycRoutes);
+router.use("/delivery", deliveryRoutes);
 
 // Health check
 router.get("/health", (req, res) => {

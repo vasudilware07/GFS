@@ -1,10 +1,12 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuthStore } from './store';
+import { useDeliveryAuthStore } from './store/deliveryAuthStore';
 
 // Layouts
 import Layout from './components/Layout';
 import AdminLayout from './components/AdminLayout';
+import DeliveryLayout from './components/DeliveryLayout';
 
 // Public Pages
 import Home from './pages/Home';
@@ -30,6 +32,16 @@ import AdminInvoices from './pages/admin/Invoices';
 import AdminPayments from './pages/admin/Payments';
 import AdminReports from './pages/admin/Reports';
 import KYCManagement from './pages/admin/KYCManagement';
+import AdminDeliveryPersons from './pages/admin/DeliveryPersons';
+import DeliveryPersonForm from './pages/admin/DeliveryPersonForm';
+import AdminDeliveryOrders from './pages/admin/DeliveryOrders';
+
+// Delivery Person Pages
+import DeliveryLogin from './pages/delivery/Login';
+import DeliveryDashboard from './pages/delivery/Dashboard';
+import DeliveryOrders from './pages/delivery/Orders';
+import DeliveryEarnings from './pages/delivery/Earnings';
+import DeliveryProfile from './pages/delivery/Profile';
 
 // KYC Page
 import KYCForm from './pages/KYCForm';
@@ -76,6 +88,17 @@ function AdminRoute({ children }) {
   
   if (user?.role !== 'ADMIN') {
     return <Navigate to="/" replace />;
+  }
+  
+  return children;
+}
+
+// Delivery Person Route Component
+function DeliveryRoute({ children }) {
+  const { isAuthenticated } = useDeliveryAuthStore();
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
   }
   
   return children;
@@ -197,6 +220,24 @@ function App() {
           <Route path="payments" element={<AdminPayments />} />
           <Route path="reports" element={<AdminReports />} />
           <Route path="kyc" element={<KYCManagement />} />
+          <Route path="delivery-persons" element={<AdminDeliveryPersons />} />
+          <Route path="delivery-persons/new" element={<DeliveryPersonForm />} />
+          <Route path="delivery-persons/:id" element={<DeliveryPersonForm />} />
+          <Route path="delivery-orders" element={<AdminDeliveryOrders />} />
+        </Route>
+
+        {/* Delivery Person Routes */}
+        <Route path="/delivery/login" element={<DeliveryLogin />} />
+        <Route path="/delivery" element={
+          <DeliveryRoute>
+            <DeliveryLayout />
+          </DeliveryRoute>
+        }>
+          <Route index element={<Navigate to="/delivery/dashboard" replace />} />
+          <Route path="dashboard" element={<DeliveryDashboard />} />
+          <Route path="orders" element={<DeliveryOrders />} />
+          <Route path="earnings" element={<DeliveryEarnings />} />
+          <Route path="profile" element={<DeliveryProfile />} />
         </Route>
 
         {/* 404 Fallback */}

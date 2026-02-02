@@ -12,10 +12,46 @@ const api = axios.create({
 // Add token to requests
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // Skip auth for login endpoints
+    if (config.url?.includes('/login') || config.url?.includes('/register')) {
+      return config;
     }
+    
+    // Get delivery token - check both localStorage and persisted zustand storage
+    let deliveryToken = localStorage.getItem('deliveryToken');
+    if (!deliveryToken) {
+      try {
+        const persistedState = JSON.parse(localStorage.getItem('delivery-auth-storage') || '{}');
+        deliveryToken = persistedState?.state?.token;
+        // Restore to localStorage if found
+        if (deliveryToken) {
+          localStorage.setItem('deliveryToken', deliveryToken);
+        }
+      } catch (e) {}
+    }
+    
+    const userToken = localStorage.getItem('token');
+    
+    // Admin routes for managing delivery (use admin token)
+    const isAdminDeliveryRoute = 
+      config.url?.includes('/delivery/persons') ||
+      config.url?.includes('/delivery/requests') ||
+      config.url?.includes('/delivery/payment-requests') ||
+      config.url?.includes('/delivery/direct-payment') ||
+      config.url?.includes('/delivery/orders/available') ||
+      config.url?.match(/\/delivery\/orders\/[^/]+\/assign/);
+    
+    // If it's a delivery route but NOT an admin route, use delivery token
+    const isDeliveryPersonRoute = config.url?.includes('/delivery/') && !isAdminDeliveryRoute;
+    
+    console.log('API Request:', config.url, { isDeliveryPersonRoute, hasDeliveryToken: !!deliveryToken, hasUserToken: !!userToken });
+    
+    if (isDeliveryPersonRoute && deliveryToken) {
+      config.headers.Authorization = `Bearer ${deliveryToken}`;
+    } else if (userToken) {
+      config.headers.Authorization = `Bearer ${userToken}`;
+    }
+    
     return config;
   },
   (error) => Promise.reject(error)
@@ -25,11 +61,9 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
-    }
+    // Don't auto-redirect on 401 - let components handle auth state
+    // This prevents race conditions with token rehydration
+    console.log('API Error:', error.config?.url, error.response?.status);
     return Promise.reject(error);
   }
 );
@@ -128,6 +162,45 @@ export const reportAPI = {
   getDues: () => api.get('/reports/dues'),
   getTopProducts: (params) => api.get('/reports/top-products', { params }),
   getProfit: (params) => api.get('/reports/profit', { params }),
+};
+
+// Delivery APIs
+export const deliveryAPI = {
+  // Public
+  login: (data) => api.post('/delivery/login', data),
+  
+  // Delivery Person
+  getMyProfile: () => api.get('/delivery/me'),
+  getMyOrders: (params) => api.get('/delivery/my-orders', { params }),
+  getMyEarnings: () => api.get('/delivery/my-earnings'),
+  requestOrder: (orderId) => api.post(`/delivery/request-order/${orderId}`),
+  markOutForDelivery: (orderId) => api.put(`/delivery/orders/${orderId}/out-for-delivery`),
+  verifyDelivery: (orderId, formData) => api.post(`/delivery/orders/${orderId}/verify`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  requestPayment: (data) => api.post('/delivery/payment-request', data),
+  updateAvailability: (isAvailable) => api.put('/delivery/availability', { isAvailable }),
+  
+  // Admin
+  createPerson: (formData) => api.post('/delivery/persons', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  getAllPersons: (params) => api.get('/delivery/persons', { params }),
+  getPerson: (id) => api.get(`/delivery/persons/${id}`),
+  updatePerson: (id, formData) => api.put(`/delivery/persons/${id}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  deletePerson: (id) => api.delete(`/delivery/persons/${id}`),
+  
+  getAvailableOrders: () => api.get('/delivery/orders/available'),
+  assignOrder: (orderId, deliveryPersonId) => api.post(`/delivery/orders/${orderId}/assign`, { deliveryPersonId }),
+  
+  getAllOrderRequests: () => api.get('/delivery/requests'),
+  handleOrderRequest: (deliveryPersonId, requestId, data) => api.put(`/delivery/requests/${requestId}`, { ...data, deliveryPersonId }),
+  
+  getAllPaymentRequests: (params) => api.get('/delivery/payment-requests', { params }),
+  processPaymentRequest: (id, data) => api.put(`/delivery/payment-requests/${id}`, data),
+  directPayment: (data) => api.post('/delivery/direct-payment', data),
 };
 
 export default api;
