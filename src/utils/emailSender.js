@@ -1,11 +1,29 @@
 const transporter = require("../config/mail");
 const config = require("../config/env");
 const path = require("path");
+const axios = require("axios");
 
 /**
  * Send Invoice Email with PDF attachment
  */
 async function sendInvoiceEmail(user, invoice, pdfPath) {
+  // Handle Cloudinary URLs - need to provide URL or download for attachment
+  let attachment;
+  
+  if (pdfPath.startsWith('http')) {
+    // For Cloudinary URLs, use href (URL attachment)
+    attachment = {
+      filename: `${invoice.invoiceNumber}.pdf`,
+      href: pdfPath
+    };
+  } else {
+    // For local files, use path
+    attachment = {
+      filename: `${invoice.invoiceNumber}.pdf`,
+      path: pdfPath
+    };
+  }
+  
   const mailOptions = {
     from: config.smtp.from,
     to: user.email,
@@ -18,7 +36,7 @@ async function sendInvoiceEmail(user, invoice, pdfPath) {
         </div>
         
         <div style="padding: 20px; background: #f9f9f9;">
-          <p>Dear <strong>${user.ownerName}</strong>,</p>
+          <p>Dear <strong>${user.ownerName || user.name}</strong>,</p>
           
           <p>Please find attached the invoice for your recent order.</p>
           
@@ -63,12 +81,7 @@ async function sendInvoiceEmail(user, invoice, pdfPath) {
         </div>
       </div>
     `,
-    attachments: [
-      {
-        filename: `${invoice.invoiceNumber}.pdf`,
-        path: pdfPath
-      }
-    ]
+    attachments: [attachment]
   };
   
   return transporter.sendMail(mailOptions);

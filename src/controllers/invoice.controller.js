@@ -3,6 +3,11 @@ const { generateInvoicePDF } = require("../utils/pdfGenerator");
 const { sendInvoiceEmail, sendDueReminderEmail } = require("../utils/emailSender");
 const path = require("path");
 const fs = require("fs");
+const axios = require("axios");
+const config = require("../config/env");
+
+// Check if using Cloudinary
+const useCloudinary = config.cloudinary.cloudName && config.cloudinary.apiKey && config.cloudinary.apiSecret;
 
 /**
  * @desc    Get all invoices
@@ -121,13 +126,22 @@ exports.downloadInvoice = async (req, res) => {
       });
     }
     
-    // Regenerate PDF if not exists
-    if (!invoice.pdfPath || !fs.existsSync(invoice.pdfPath)) {
+    // Check if PDF needs to be regenerated
+    const needsRegeneration = !invoice.pdfPath || 
+      (!invoice.pdfPath.startsWith('http') && !fs.existsSync(invoice.pdfPath));
+    
+    if (needsRegeneration) {
       const pdfPath = await generateInvoicePDF(invoice, invoice.orderId, invoice.userId);
       invoice.pdfPath = pdfPath;
       await invoice.save();
     }
     
+    // If Cloudinary URL, redirect to it
+    if (invoice.pdfPath.startsWith('http')) {
+      return res.redirect(invoice.pdfPath);
+    }
+    
+    // Otherwise, send local file
     res.download(invoice.pdfPath, `${invoice.invoiceNumber}.pdf`);
     
   } catch (error) {
@@ -165,7 +179,10 @@ exports.resendInvoice = async (req, res) => {
     }
     
     // Regenerate PDF if needed
-    if (!invoice.pdfPath || !fs.existsSync(invoice.pdfPath)) {
+    const needsRegeneration = !invoice.pdfPath || 
+      (!invoice.pdfPath.startsWith('http') && !fs.existsSync(invoice.pdfPath));
+    
+    if (needsRegeneration) {
       const pdfPath = await generateInvoicePDF(invoice, invoice.orderId, invoice.userId);
       invoice.pdfPath = pdfPath;
     }

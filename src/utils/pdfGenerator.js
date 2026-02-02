@@ -1,30 +1,79 @@
 const PDFDocument = require("pdfkit");
+const config = require("../config/env");
+const streamifier = require("streamifier");
+
+// Check if Cloudinary is configured
+const useCloudinary = config.cloudinary.cloudName && config.cloudinary.apiKey && config.cloudinary.apiSecret;
+
+let cloudinary;
+if (useCloudinary) {
+  cloudinary = require("cloudinary").v2;
+  cloudinary.config({
+    cloud_name: config.cloudinary.cloudName,
+    api_key: config.cloudinary.apiKey,
+    api_secret: config.cloudinary.apiSecret
+  });
+}
+
+// For local development only
 const fs = require("fs");
 const path = require("path");
-const config = require("../config/env");
-
-// Ensure invoices directory exists
 const invoicesDir = path.join(__dirname, "../../invoices");
-if (!fs.existsSync(invoicesDir)) {
-  fs.mkdirSync(invoicesDir, { recursive: true });
-}
 
 /**
  * Generate GST-style Invoice PDF
  * @param {Object} invoice - Invoice document
  * @param {Object} order - Order document with items
  * @param {Object} user - User/Customer document
- * @returns {Promise<string>} - Path to generated PDF
+ * @returns {Promise<string>} - Path/URL to generated PDF
  */
 async function generateInvoicePDF(invoice, order, user) {
   return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({ margin: 50, size: "A4" });
-      const fileName = `${invoice.invoiceNumber}.pdf`;
-      const filePath = path.join(invoicesDir, fileName);
-      const writeStream = fs.createWriteStream(filePath);
+      const chunks = [];
       
-      doc.pipe(writeStream);
+      doc.on("data", (chunk) => chunks.push(chunk));
+      
+      doc.on("end", async () => {
+        const pdfBuffer = Buffer.concat(chunks);
+        
+        if (useCloudinary) {
+          // Upload to Cloudinary
+          try {
+            const uploadPromise = new Promise((res, rej) => {
+              const uploadStream = cloudinary.uploader.upload_stream(
+                {
+                  folder: "lbr-fruits/invoices",
+                  public_id: invoice.invoiceNumber,
+                  resource_type: "raw",
+                  format: "pdf"
+                },
+                (error, result) => {
+                  if (error) rej(error);
+                  else res(result);
+                }
+              );
+              streamifier.createReadStream(pdfBuffer).pipe(uploadStream);
+            });
+            
+            const result = await uploadPromise;
+            resolve(result.secure_url);
+          } catch (uploadError) {
+            console.error("Cloudinary upload error:", uploadError);
+            reject(uploadError);
+          }
+        } else {
+          // Save locally for development
+          if (!fs.existsSync(invoicesDir)) {
+            fs.mkdirSync(invoicesDir, { recursive: true });
+          }
+          const fileName = `${invoice.invoiceNumber}.pdf`;
+          const filePath = path.join(invoicesDir, fileName);
+          fs.writeFileSync(filePath, pdfBuffer);
+          resolve(filePath);
+        }
+      });
       
       // ===== HEADER =====
       doc.fontSize(24).font("Helvetica-Bold").text(config.business.name, { align: "center" });
@@ -58,150 +107,147 @@ async function generateInvoicePDF(invoice, order, user) {
       // Right column - Customer details
       doc.fontSize(10).font("Helvetica-Bold").text("Bill To:", 300, detailsTop);
       doc.font("Helvetica").fontSize(9);
-      doc.text(`${user.shopName}`, 300, doc.y + 5);
-      doc.text(`${user.ownerName}`, 300, doc.y + 3);
-      doc.text(`${user.getFullAddress() || "Address not provided"}`, 300, doc.y + 3);
-      doc.text(`Phone: ${user.phone}`, 300, doc.y + 3);
-      if (user.gstNumber) {
-        doc.text(`GSTIN: ${user.gstNumber}`, 300, doc.y + 3);
+      doc.text(user.shopName || user.name, 300, doc.y + 5);
+      if (user.kyc?.businessDetails?.businessType === 'individual') {
+        doc.text(`Customer: ${user.name}`, 300, doc.y + 3);
+      }
+      if (user.kyc?.businessAddress) {
+        const addr = user.kyc.businessAddress;
+        doc.text(`${addr.street || ""}`, 300, doc.y + 3);
+        doc.text(`${addr.city || ""}, ${addr.state || ""} ${addr.pincode || ""}`, 300, doc.y + 3);
+      }
+      doc.text(`Phone: ${user.phone || user.kyc?.phone || "N/A"}`, 300, doc.y + 3);
+      if (user.kyc?.businessDetails?.gstNumber) {
+        doc.text(`GSTIN: ${user.kyc.businessDetails.gstNumber}`, 300, doc.y + 3);
       }
       
-      doc.moveDown(3);
+      doc.moveDown(2);
       
       // ===== ITEMS TABLE =====
       const tableTop = doc.y + 10;
-      const tableHeaders = ["#", "Item", "HSN", "Qty", "Unit", "Rate (₹)", "GST %", "Amount (₹)"];
-      const colWidths = [25, 140, 50, 40, 40, 60, 45, 70];
-      let xPos = 50;
+      const itemsPerPage = 15;
       
-      // Table header background
-      doc.rect(50, tableTop - 5, 495, 20).fill("#f0f0f0");
+      // Table header
+      drawTableHeader(doc, tableTop);
       
-      // Table headers
-      doc.fillColor("#000000").fontSize(9).font("Helvetica-Bold");
-      tableHeaders.forEach((header, i) => {
-        doc.text(header, xPos, tableTop, { width: colWidths[i], align: i > 2 ? "right" : "left" });
-        xPos += colWidths[i];
-      });
+      let y = tableTop + 25;
+      let itemIndex = 0;
+      let pageSubtotal = 0;
       
-      // Table rows
-      let yPos = tableTop + 25;
-      doc.font("Helvetica").fontSize(9);
+      // Get items from order
+      const items = order.items || [];
       
-      order.items.forEach((item, index) => {
-        xPos = 50;
-        const rowData = [
-          (index + 1).toString(),
-          item.name,
-          item.hsnCode || "0808",
-          item.quantity.toString(),
-          item.unit,
-          item.pricePerUnit.toFixed(2),
-          (item.gstRate || 0).toString(),
-          item.totalPrice.toFixed(2)
-        ];
-        
-        rowData.forEach((data, i) => {
-          doc.text(data, xPos, yPos, { width: colWidths[i], align: i > 2 ? "right" : "left" });
-          xPos += colWidths[i];
-        });
-        
-        yPos += 20;
-        
-        // Add new page if needed
-        if (yPos > 700) {
+      items.forEach((item, i) => {
+        if (itemIndex > 0 && itemIndex % itemsPerPage === 0) {
+          // New page
           doc.addPage();
-          yPos = 50;
+          drawTableHeader(doc, 50);
+          y = 75;
         }
+        
+        const productName = item.productId?.name || item.name || "Product";
+        const qty = item.quantity || 0;
+        const unit = item.productId?.unit || item.unit || "KG";
+        const rate = item.price || item.pricePerUnit || 0;
+        const amount = qty * rate;
+        pageSubtotal += amount;
+        
+        // Draw row
+        doc.fontSize(8).font("Helvetica");
+        doc.text(i + 1, 55, y, { width: 30, align: "center" });
+        doc.text(productName.substring(0, 30), 90, y, { width: 150 });
+        doc.text(`${qty} ${unit}`, 245, y, { width: 50, align: "center" });
+        doc.text(`₹${rate.toFixed(2)}`, 300, y, { width: 60, align: "right" });
+        doc.text(`₹${amount.toFixed(2)}`, 380, y, { width: 80, align: "right" });
+        
+        y += 20;
+        itemIndex++;
       });
       
-      // Table border
-      doc.moveTo(50, tableTop - 5).lineTo(545, tableTop - 5).stroke();
-      doc.moveTo(50, tableTop + 15).lineTo(545, tableTop + 15).stroke();
-      doc.moveTo(50, yPos).lineTo(545, yPos).stroke();
+      // Draw table bottom line
+      doc.moveTo(50, y).lineTo(545, y).stroke();
       
-      doc.moveDown(2);
+      // ===== TOTALS SECTION =====
+      y += 15;
+      const totalsX = 350;
       
-      // ===== TOTALS =====
-      const totalsX = 380;
-      yPos = doc.y + 10;
+      const subtotal = invoice.subtotal || order.subtotal || 0;
+      const taxAmount = invoice.taxAmount || order.taxAmount || 0;
+      const discount = invoice.discount || order.discount || 0;
+      const total = invoice.totalAmount || order.totalAmount || 0;
       
-      doc.fontSize(10);
-      doc.text("Subtotal:", totalsX, yPos);
-      doc.text(`₹ ${order.subtotal.toFixed(2)}`, totalsX + 100, yPos, { align: "right" });
+      doc.fontSize(9).font("Helvetica");
+      doc.text("Subtotal:", totalsX, y);
+      doc.text(`₹${subtotal.toFixed(2)}`, 450, y, { width: 90, align: "right" });
       
-      if (order.gstAmount > 0) {
-        yPos += 18;
-        doc.text("GST:", totalsX, yPos);
-        doc.text(`₹ ${order.gstAmount.toFixed(2)}`, totalsX + 100, yPos, { align: "right" });
+      y += 15;
+      doc.text("GST (18%):", totalsX, y);
+      doc.text(`₹${taxAmount.toFixed(2)}`, 450, y, { width: 90, align: "right" });
+      
+      if (discount > 0) {
+        y += 15;
+        doc.text("Discount:", totalsX, y);
+        doc.text(`-₹${discount.toFixed(2)}`, 450, y, { width: 90, align: "right" });
       }
       
-      if (order.discount > 0) {
-        yPos += 18;
-        doc.text("Discount:", totalsX, yPos);
-        doc.text(`- ₹ ${order.discount.toFixed(2)}`, totalsX + 100, yPos, { align: "right" });
-      }
+      y += 20;
+      doc.moveTo(totalsX, y).lineTo(545, y).stroke();
+      y += 10;
+      doc.fontSize(11).font("Helvetica-Bold");
+      doc.text("Grand Total:", totalsX, y);
+      doc.text(`₹${total.toFixed(2)}`, 450, y, { width: 90, align: "right" });
       
-      yPos += 20;
-      doc.moveTo(totalsX, yPos).lineTo(545, yPos).stroke();
+      // Amount in words
+      y += 25;
+      doc.fontSize(9).font("Helvetica");
+      doc.text(`Amount in Words: ${numberToWords(Math.round(total))} Rupees Only`, 50, y);
       
-      yPos += 8;
-      doc.fontSize(12).font("Helvetica-Bold");
-      doc.text("Total Amount:", totalsX, yPos);
-      doc.text(`₹ ${order.totalAmount.toFixed(2)}`, totalsX + 100, yPos, { align: "right" });
-      
-      if (invoice.paidAmount > 0) {
-        yPos += 20;
-        doc.fontSize(10).font("Helvetica");
-        doc.text("Paid Amount:", totalsX, yPos);
-        doc.text(`₹ ${invoice.paidAmount.toFixed(2)}`, totalsX + 100, yPos, { align: "right" });
-        
-        yPos += 18;
-        doc.font("Helvetica-Bold").fillColor(invoice.dueAmount > 0 ? "#cc0000" : "#008800");
-        doc.text("Balance Due:", totalsX, yPos);
-        doc.text(`₹ ${invoice.dueAmount.toFixed(2)}`, totalsX + 100, yPos, { align: "right" });
-        doc.fillColor("#000000");
-      }
-      
-      // ===== AMOUNT IN WORDS =====
-      doc.moveDown(3);
-      doc.fontSize(10).font("Helvetica-Bold");
-      doc.text(`Amount in Words: ${numberToWords(order.totalAmount)} Rupees Only`, 50);
+      // ===== PAYMENT INFO =====
+      y += 30;
+      doc.fontSize(10).font("Helvetica-Bold").text("Payment Information:", 50, y);
+      doc.font("Helvetica").fontSize(9);
+      y += 15;
+      doc.text(`Status: ${invoice.status || "UNPAID"}`, 50, y);
+      doc.text(`Payment Mode: ${order.paymentMethod || "Cash on Delivery"}`, 200, y);
       
       // ===== BANK DETAILS =====
-      doc.moveDown(2);
-      doc.fontSize(10).font("Helvetica-Bold").text("Bank Details:", 50);
-      doc.fontSize(9).font("Helvetica");
-      doc.text("Bank: State Bank of India", 50);
-      doc.text("Account Name: LBR Fruit Suppliers", 50);
-      doc.text("Account No: 1234567890", 50);
-      doc.text("IFSC Code: SBIN0001234", 50);
+      y += 30;
+      doc.fontSize(10).font("Helvetica-Bold").text("Bank Details:", 50, y);
+      doc.font("Helvetica").fontSize(9);
+      y += 15;
+      doc.text("Bank: State Bank of India", 50, y);
+      doc.text("Account No: 1234567890", 200, y);
+      y += 12;
+      doc.text("IFSC: SBIN0001234", 50, y);
+      doc.text("Branch: Mumbai Main", 200, y);
       
       // ===== TERMS & CONDITIONS =====
-      doc.moveDown(2);
-      doc.fontSize(9).font("Helvetica-Bold").text("Terms & Conditions:", 50);
-      doc.font("Helvetica").fontSize(8);
-      doc.text("1. Payment is due within the specified due date.", 50);
-      doc.text("2. Late payments may attract interest charges.", 50);
-      doc.text("3. Goods once sold will not be taken back.", 50);
-      doc.text("4. Subject to local jurisdiction.", 50);
+      y += 30;
+      doc.fontSize(8).font("Helvetica-Bold").text("Terms & Conditions:", 50, y);
+      doc.font("Helvetica").fontSize(7);
+      y += 12;
+      doc.text("1. Payment is due within 7 days of invoice date.", 50, y);
+      y += 10;
+      doc.text("2. Goods once sold will not be taken back.", 50, y);
+      y += 10;
+      doc.text("3. Subject to Mumbai jurisdiction.", 50, y);
       
       // ===== SIGNATURE =====
-      doc.moveDown(3);
-      doc.fontSize(10).text("For " + config.business.name, 400, doc.y, { align: "right" });
-      doc.moveDown(3);
-      doc.text("Authorized Signatory", 400, doc.y, { align: "right" });
+      const signatureY = doc.page.height - 100;
+      doc.fontSize(9).font("Helvetica");
+      doc.text("For " + config.business.name, 400, signatureY, { align: "center" });
+      doc.moveDown(2);
+      doc.text("Authorized Signatory", 400, signatureY + 40, { align: "center" });
       
       // ===== FOOTER =====
-      doc.fontSize(8).text("This is a computer generated invoice.", 50, 780, { align: "center" });
+      doc.fontSize(8).text(
+        "This is a computer generated invoice and does not require signature.",
+        50,
+        doc.page.height - 40,
+        { align: "center", width: 495 }
+      );
       
       doc.end();
-      
-      writeStream.on("finish", () => {
-        resolve(filePath);
-      });
-      
-      writeStream.on("error", reject);
       
     } catch (error) {
       reject(error);
@@ -209,8 +255,25 @@ async function generateInvoicePDF(invoice, order, user) {
   });
 }
 
+// Helper: Draw table header
+function drawTableHeader(doc, y) {
+  doc.fillColor("#f0f0f0").rect(50, y, 495, 20).fill();
+  doc.fillColor("#000000");
+  
+  doc.fontSize(9).font("Helvetica-Bold");
+  doc.text("S.No", 55, y + 5, { width: 30, align: "center" });
+  doc.text("Description", 90, y + 5, { width: 150 });
+  doc.text("Qty", 245, y + 5, { width: 50, align: "center" });
+  doc.text("Rate", 300, y + 5, { width: 60, align: "right" });
+  doc.text("Amount", 380, y + 5, { width: 80, align: "right" });
+  
+  doc.moveTo(50, y).lineTo(545, y).stroke();
+  doc.moveTo(50, y + 20).lineTo(545, y + 20).stroke();
+}
+
 // Helper: Format date
 function formatDate(date) {
+  if (!date) return "N/A";
   const d = new Date(date);
   return d.toLocaleDateString("en-IN", {
     day: "2-digit",
