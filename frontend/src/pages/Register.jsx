@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiUser, FiMail, FiLock, FiPhone, FiMapPin, FiEye, FiEyeOff, FiBriefcase } from 'react-icons/fi';
+import { FiUser, FiMail, FiLock, FiPhone, FiMapPin, FiEye, FiEyeOff, FiBriefcase, FiCheck } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { authAPI } from '../api';
 import { useAuthStore } from '../store';
@@ -25,8 +25,22 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1);
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [resendTimer, setResendTimer] = useState(0);
+  const otpRefs = useRef([]);
   const navigate = useNavigate();
   const { login } = useAuthStore();
+
+  // Countdown timer for resend OTP
+  useEffect(() => {
+    let interval;
+    if (resendTimer > 0) {
+      interval = setInterval(() => {
+        setResendTimer(prev => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [resendTimer]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -41,25 +55,90 @@ export default function Register() {
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleOtpChange = (index, value) => {
+    if (value.length > 1) {
+      value = value.slice(-1);
+    }
+    if (!/^\d*$/.test(value)) return;
+
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
+
+    // Auto-focus next input
+    if (value && index < 5) {
+      otpRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+      otpRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleOtpPaste = (e) => {
     e.preventDefault();
-    
+    const pastedData = e.clipboardData.getData('text').slice(0, 6);
+    if (/^\d+$/.test(pastedData)) {
+      const newOtp = pastedData.split('').concat(Array(6 - pastedData.length).fill(''));
+      setOtp(newOtp);
+      otpRefs.current[Math.min(pastedData.length, 5)]?.focus();
+    }
+  };
+
+  const sendOTP = async () => {
     if (formData.password !== formData.confirmPassword) {
       toast.error('Passwords do not match');
       return;
     }
 
     setLoading(true);
-
     try {
-      const res = await authAPI.register(formData);
+      await authAPI.sendOTP(formData);
+      setStep(3);
+      setResendTimer(60);
+      toast.success('OTP sent to your email!');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to send OTP');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resendOTP = async () => {
+    if (resendTimer > 0) return;
+    
+    setLoading(true);
+    try {
+      await authAPI.resendOTP({ email: formData.email });
+      setResendTimer(60);
+      setOtp(['', '', '', '', '', '']);
+      toast.success('New OTP sent!');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to resend OTP');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyOTP = async () => {
+    const otpCode = otp.join('');
+    if (otpCode.length !== 6) {
+      toast.error('Please enter complete OTP');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await authAPI.verifyOTP({ email: formData.email, otp: otpCode });
       const { user, token } = res.data.data;
       
       login(user, token);
       toast.success('Registration successful! Welcome to Ganesh Fruit Suppliers');
       navigate('/');
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Registration failed');
+      toast.error(error.response?.data?.message || 'Verification failed');
     } finally {
       setLoading(false);
     }
@@ -78,21 +157,29 @@ export default function Register() {
         </div>
 
         {/* Progress Steps */}
-        <div className="flex items-center justify-center gap-4 mb-8">
+        <div className="flex items-center justify-center gap-2 mb-8">
           <div className={`flex items-center gap-2 ${step >= 1 ? 'text-green-600' : 'text-gray-400'}`}>
-            <span className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 1 ? 'bg-green-600 text-white' : 'bg-gray-200'}`}>1</span>
-            <span className="hidden sm:block">Business Info</span>
+            <span className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 1 ? 'bg-green-600 text-white' : 'bg-gray-200'}`}>
+              {step > 1 ? <FiCheck /> : '1'}
+            </span>
+            <span className="hidden sm:block text-sm">Business Info</span>
           </div>
-          <div className={`w-12 h-1 ${step >= 2 ? 'bg-green-600' : 'bg-gray-200'}`}></div>
+          <div className={`w-8 h-1 ${step >= 2 ? 'bg-green-600' : 'bg-gray-200'}`}></div>
           <div className={`flex items-center gap-2 ${step >= 2 ? 'text-green-600' : 'text-gray-400'}`}>
-            <span className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 2 ? 'bg-green-600 text-white' : 'bg-gray-200'}`}>2</span>
-            <span className="hidden sm:block">Address & Password</span>
+            <span className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 2 ? 'bg-green-600 text-white' : 'bg-gray-200'}`}>
+              {step > 2 ? <FiCheck /> : '2'}
+            </span>
+            <span className="hidden sm:block text-sm">Address & Password</span>
+          </div>
+          <div className={`w-8 h-1 ${step >= 3 ? 'bg-green-600' : 'bg-gray-200'}`}></div>
+          <div className={`flex items-center gap-2 ${step >= 3 ? 'text-green-600' : 'text-gray-400'}`}>
+            <span className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 3 ? 'bg-green-600 text-white' : 'bg-gray-200'}`}>3</span>
+            <span className="hidden sm:block text-sm">Verify Email</span>
           </div>
         </div>
 
         {/* Registration Form */}
         <div className="bg-white rounded-2xl shadow-lg p-8">
-          <form onSubmit={handleSubmit}>
             {step === 1 && (
               <div className="space-y-6 fade-in">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Business Information</h2>
@@ -308,16 +395,88 @@ export default function Register() {
                     Back
                   </button>
                   <button
-                    type="submit"
-                    disabled={loading}
+                    type="button"
+                    onClick={sendOTP}
+                    disabled={loading || !formData.password || !formData.confirmPassword}
                     className="flex-1 btn-primary py-3 flex items-center justify-center gap-2"
                   >
-                    {loading ? <ButtonLoading /> : 'Create Account'}
+                    {loading ? <ButtonLoading /> : 'Send OTP'}
                   </button>
                 </div>
               </div>
             )}
-          </form>
+
+            {step === 3 && (
+              <div className="space-y-6 fade-in">
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FiMail className="text-3xl text-green-600" />
+                  </div>
+                  <h2 className="text-xl font-semibold text-gray-900 mb-2">Verify Your Email</h2>
+                  <p className="text-gray-500">
+                    We've sent a 6-digit OTP to<br />
+                    <span className="font-medium text-gray-700">{formData.email}</span>
+                  </p>
+                </div>
+
+                {/* OTP Input */}
+                <div className="flex justify-center gap-2 sm:gap-3">
+                  {otp.map((digit, index) => (
+                    <input
+                      key={index}
+                      ref={el => otpRefs.current[index] = el}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => handleOtpChange(index, e.target.value)}
+                      onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                      onPaste={handleOtpPaste}
+                      className="w-12 h-14 sm:w-14 sm:h-16 text-center text-2xl font-bold border-2 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all"
+                    />
+                  ))}
+                </div>
+
+                {/* Timer and Resend */}
+                <div className="text-center">
+                  {resendTimer > 0 ? (
+                    <p className="text-gray-500">
+                      Resend OTP in <span className="font-medium text-green-600">{resendTimer}s</span>
+                    </p>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={resendOTP}
+                      disabled={loading}
+                      className="text-green-600 font-medium hover:underline"
+                    >
+                      Resend OTP
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex gap-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep(2);
+                      setOtp(['', '', '', '', '', '']);
+                    }}
+                    className="flex-1 btn-outline py-3"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={verifyOTP}
+                    disabled={loading || otp.join('').length !== 6}
+                    className="flex-1 btn-primary py-3 flex items-center justify-center gap-2"
+                  >
+                    {loading ? <ButtonLoading /> : 'Verify & Register'}
+                  </button>
+                </div>
+              </div>
+            )}
 
           {/* Login Link */}
           <p className="mt-6 text-center text-gray-600">

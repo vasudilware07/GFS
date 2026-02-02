@@ -1,6 +1,223 @@
 const { User } = require("../models");
 const { generateToken } = require("../middlewares");
-const { sendWelcomeEmail } = require("../utils/emailSender");
+const { sendWelcomeEmail, sendOTPEmail } = require("../utils/emailSender");
+
+// Generate 6-digit OTP
+const generateOTP = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+/**
+ * @desc    Send OTP to email for verification
+ * @route   POST /api/auth/send-otp
+ * @access  Public
+ */
+exports.sendOTP = async (req, res) => {
+  try {
+    const { email, shopName, ownerName, phone, gstNumber, address, password } = req.body;
+    
+    // Check if user already exists and is verified
+    const existingUser = await User.findOne({ email });
+    if (existingUser && existingUser.isVerified) {
+      return res.status(400).json({
+        success: false,
+        message: "Email already registered"
+      });
+    }
+    
+    // Generate OTP
+    const otp = generateOTP();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    
+    if (existingUser) {
+      // Update existing unverified user
+      existingUser.shopName = shopName;
+      existingUser.ownerName = ownerName;
+      existingUser.phone = phone;
+      existingUser.gstNumber = gstNumber;
+      existingUser.address = address;
+      existingUser.password = password;
+      existingUser.emailOTP = {
+        code: otp,
+        expiresAt: otpExpiry,
+        attempts: 0
+      };
+      await existingUser.save();
+    } else {
+      // Create new unverified user
+      await User.create({
+        shopName,
+        ownerName,
+        email,
+        phone,
+        gstNumber,
+        address,
+        password,
+        role: "USER",
+        isVerified: false,
+        emailOTP: {
+          code: otp,
+          expiresAt: otpExpiry,
+          attempts: 0
+        }
+      });
+    }
+    
+    // Send OTP email
+    await sendOTPEmail(email, ownerName, otp);
+    
+    res.status(200).json({
+      success: true,
+      message: "OTP sent to your email"
+    });
+    
+  } catch (error) {
+    console.error("Send OTP error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+/**
+ * @desc    Verify OTP and complete registration
+ * @route   POST /api/auth/verify-otp
+ * @access  Public
+ */
+exports.verifyOTP = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    
+    const user = await User.findOne({ email });
+    
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "User not found. Please register again."
+      });
+    }
+    
+    if (user.isVerified) {
+      return res.status(400).json({
+        success: false,
+        message: "Email already verified"
+      });
+    }
+    
+    // Check OTP attempts
+    if (user.emailOTP.attempts >= 5) {
+      return res.status(400).json({
+        success: false,
+        message: "Too many attempts. Please request a new OTP."
+      });
+    }
+    
+    // Check if OTP expired
+    if (new Date() > user.emailOTP.expiresAt) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP has expired. Please request a new one."
+      });
+    }
+    
+    // Verify OTP
+    if (user.emailOTP.code !== otp) {
+      user.emailOTP.attempts += 1;
+      await user.save();
+      return res.status(400).json({
+        success: false,
+        message: "Invalid OTP"
+      });
+    }
+    
+    // Mark as verified
+    user.isVerified = true;
+    user.emailOTP = undefined;
+    await user.save();
+    
+    // Send welcome email
+    sendWelcomeEmail(user).catch(err => console.log("Welcome email failed:", err.message));
+    
+    // Generate token
+    const token = generateToken(user._id);
+    
+    res.status(200).json({
+      success: true,
+      message: "Email verified successfully!",
+      data: {
+        user: {
+          id: user._id,
+          shopName: user.shopName,
+          ownerName: user.ownerName,
+          email: user.email,
+          role: user.role
+        },
+        token
+      }
+    });
+    
+  } catch (error) {
+    console.error("Verify OTP error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+/**
+ * @desc    Resend OTP
+ * @route   POST /api/auth/resend-otp
+ * @access  Public
+ */
+exports.resendOTP = async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    const user = await User.findOne({ email });
+    
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "User not found. Please register again."
+      });
+    }
+    
+    if (user.isVerified) {
+      return res.status(400).json({
+        success: false,
+        message: "Email already verified"
+      });
+    }
+    
+    // Generate new OTP
+    const otp = generateOTP();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+    
+    user.emailOTP = {
+      code: otp,
+      expiresAt: otpExpiry,
+      attempts: 0
+    };
+    await user.save();
+    
+    // Send OTP email
+    await sendOTPEmail(email, user.ownerName, otp);
+    
+    res.status(200).json({
+      success: true,
+      message: "New OTP sent to your email"
+    });
+    
+  } catch (error) {
+    console.error("Resend OTP error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
 
 /**
  * @desc    Register new user (wholesale buyer)

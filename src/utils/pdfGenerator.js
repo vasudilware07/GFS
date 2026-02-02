@@ -47,7 +47,9 @@ async function generateInvoicePDF(invoice, order, user) {
                   folder: "lbr-fruits/invoices",
                   public_id: invoice.invoiceNumber,
                   resource_type: "raw",
-                  format: "pdf"
+                  format: "pdf",
+                  access_mode: "public",
+                  type: "upload"
                 },
                 (error, result) => {
                   if (error) rej(error);
@@ -307,4 +309,209 @@ function numberToWords(num) {
   return str.trim();
 }
 
-module.exports = { generateInvoicePDF };
+/**
+ * Generate Invoice PDF as Buffer (for email attachment and download)
+ * Does not upload to Cloudinary - just returns the raw PDF buffer
+ */
+async function generateInvoicePDFBuffer(invoice, order, user) {
+  const PDFDocumentLib = require("pdfkit");
+  
+  // Debug logging
+  console.log("=== PDF Generation Debug ===");
+  console.log("Order items count:", order?.items?.length || 0);
+  if (order?.items?.length > 0) {
+    order.items.forEach((item, i) => {
+      console.log(`Item ${i + 1}:`, {
+        name: item.productId?.name || item.name,
+        quantity: item.quantity,
+        pricePerUnit: item.pricePerUnit,
+        totalPrice: item.totalPrice
+      });
+    });
+  }
+  console.log("Invoice subtotal:", invoice?.subtotal);
+  console.log("Invoice totalAmount:", invoice?.totalAmount);
+  console.log("Order subtotal:", order?.subtotal);
+  console.log("Order totalAmount:", order?.totalAmount);
+  console.log("=== End Debug ===");
+  
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocumentLib({ margin: 50, size: "A4" });
+      const chunks = [];
+      
+      doc.on("data", (chunk) => chunks.push(chunk));
+      
+      doc.on("end", () => {
+        const pdfBuffer = Buffer.concat(chunks);
+        resolve(pdfBuffer);
+      });
+      
+      doc.on("error", (err) => reject(err));
+      
+      // ===== HEADER =====
+      doc.fontSize(24).font("Helvetica-Bold").text(config.business.name, { align: "center" });
+      doc.fontSize(10).font("Helvetica").text("Wholesale Fruit Suppliers", { align: "center" });
+      doc.moveDown(0.5);
+      
+      // Business details
+      doc.fontSize(9).text(config.business.address, { align: "center" });
+      doc.text(`Phone: ${config.business.phone} | Email: ${config.business.email}`, { align: "center" });
+      doc.text(`GSTIN: ${config.business.gst}`, { align: "center" });
+      
+      doc.moveDown();
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke();
+      doc.moveDown();
+      
+      // ===== TAX INVOICE TITLE =====
+      doc.fontSize(16).font("Helvetica-Bold").text("TAX INVOICE", { align: "center" });
+      doc.moveDown();
+      
+      // ===== INVOICE & CUSTOMER DETAILS =====
+      const detailsTop = doc.y;
+      
+      // Left column - Invoice details
+      doc.fontSize(10).font("Helvetica-Bold").text("Invoice Details:", 50, detailsTop);
+      doc.font("Helvetica").fontSize(9);
+      doc.text(`Invoice No: ${invoice.invoiceNumber}`, 50, doc.y + 5);
+      doc.text(`Invoice Date: ${formatDate(invoice.invoiceDate)}`, 50, doc.y + 3);
+      doc.text(`Due Date: ${formatDate(invoice.dueDate)}`, 50, doc.y + 3);
+      doc.text(`Order No: ${order?.orderNumber || 'N/A'}`, 50, doc.y + 3);
+      
+      // Right column - Customer details
+      doc.fontSize(10).font("Helvetica-Bold").text("Bill To:", 300, detailsTop);
+      doc.font("Helvetica").fontSize(9);
+      doc.text(user?.shopName || user?.businessName || user?.name || "Customer", 300, doc.y + 5);
+      doc.text(user?.name || user?.ownerName || "", 300, doc.y + 3);
+      
+      // Address
+      const address = user?.address || user?.kyc?.businessAddress || {};
+      if (address.street) {
+        doc.text(address.street, 300, doc.y + 3);
+      }
+      if (address.city || address.state || address.pincode) {
+        doc.text(`${address.city || ""}, ${address.state || ""} ${address.pincode || ""}`.trim() || "Address not provided", 300, doc.y + 3);
+      } else {
+        doc.text("Address not provided", 300, doc.y + 3);
+      }
+      doc.text(`Phone: ${user?.phone || user?.kyc?.phone || "N/A"}`, 300, doc.y + 3);
+      if (user?.kyc?.businessDetails?.gstNumber || user?.gstNumber) {
+        doc.text(`GSTIN: ${user?.kyc?.businessDetails?.gstNumber || user?.gstNumber}`, 300, doc.y + 3);
+      }
+      
+      doc.moveDown(2);
+      
+      // ===== ITEMS TABLE =====
+      const tableTop = doc.y + 10;
+      
+      // Table header with GST column
+      doc.fillColor("#f0f0f0").rect(50, tableTop, 495, 20).fill();
+      doc.fillColor("#000000");
+      
+      doc.fontSize(9).font("Helvetica-Bold");
+      doc.text("#", 55, tableTop + 5, { width: 25 });
+      doc.text("Item", 80, tableTop + 5, { width: 120 });
+      doc.text("HSN", 200, tableTop + 5, { width: 50, align: "center" });
+      doc.text("Qty", 255, tableTop + 5, { width: 40, align: "center" });
+      doc.text("Unit", 295, tableTop + 5, { width: 40, align: "center" });
+      doc.text("Rate (₹)", 340, tableTop + 5, { width: 55, align: "right" });
+      doc.text("GST %", 400, tableTop + 5, { width: 40, align: "center" });
+      doc.text("Amount (₹)", 445, tableTop + 5, { width: 95, align: "right" });
+      
+      doc.moveTo(50, tableTop).lineTo(545, tableTop).stroke();
+      doc.moveTo(50, tableTop + 20).lineTo(545, tableTop + 20).stroke();
+      
+      // Table rows
+      let y = tableTop + 25;
+      doc.font("Helvetica").fontSize(9);
+      
+      const items = order?.items || [];
+      let subtotal = 0;
+      
+      items.forEach((item, index) => {
+        const itemName = item.productId?.name || item.name || "Product";
+        const quantity = item.quantity || 0;
+        const unit = item.productId?.unit || item.unit || "kg";
+        const rate = item.pricePerUnit || item.priceAtTime || item.price || 0;
+        const gstPercent = item.gstRate || item.gst || 0;
+        const itemTotal = item.totalPrice || (quantity * rate);
+        subtotal += itemTotal;
+        
+        doc.text((index + 1).toString(), 55, y, { width: 25 });
+        doc.text(itemName, 80, y, { width: 120 });
+        doc.text("0808", 200, y, { width: 50, align: "center" });
+        doc.text(quantity.toString(), 255, y, { width: 40, align: "center" });
+        doc.text(unit, 295, y, { width: 40, align: "center" });
+        doc.text(rate.toFixed(2), 340, y, { width: 55, align: "right" });
+        doc.text(gstPercent.toString(), 400, y, { width: 40, align: "center" });
+        doc.text(itemTotal.toFixed(2), 445, y, { width: 95, align: "right" });
+        
+        y += 20;
+      });
+      
+      // Draw bottom line of table
+      doc.moveTo(50, y).lineTo(545, y).stroke();
+      
+      // ===== TOTALS =====
+      y += 15;
+      
+      // Use order/invoice values or calculated subtotal
+      const finalSubtotal = invoice.subtotal || order?.subtotal || subtotal;
+      const finalTotal = invoice.totalAmount || order?.totalAmount || finalSubtotal;
+      
+      // Subtotal
+      doc.font("Helvetica").fontSize(9);
+      doc.text("Subtotal:", 380, y);
+      doc.text(`₹${finalSubtotal.toFixed(2)}`, 480, y, { width: 60, align: "right" });
+      
+      y += 20;
+      doc.moveTo(380, y - 5).lineTo(545, y - 5).stroke();
+      
+      // Total Amount
+      doc.font("Helvetica-Bold").fontSize(11);
+      doc.text("Total Amount:", 380, y);
+      doc.text(`₹${finalTotal.toFixed(2)}`, 480, y, { width: 60, align: "right" });
+      
+      // ===== AMOUNT IN WORDS =====
+      y += 40;
+      doc.font("Helvetica-Bold").fontSize(10);
+      doc.text(`Amount in Words: ${numberToWords(Math.round(finalTotal))} Rupees Only`, 50, y);
+      
+      // ===== BANK DETAILS =====
+      y += 35;
+      doc.font("Helvetica-Bold").fontSize(10).text("Bank Details:", 50, y);
+      doc.font("Helvetica").fontSize(9);
+      y += 15;
+      doc.text("Bank: State Bank of India", 50, y);
+      y += 12;
+      doc.text("Account Name: LBR Fruit Suppliers", 50, y);
+      y += 12;
+      doc.text("Account No: 1234567890", 50, y);
+      y += 12;
+      doc.text("IFSC Code: SBIN0001234", 50, y);
+      
+      // ===== TERMS & CONDITIONS =====
+      y += 30;
+      doc.font("Helvetica-Bold").fontSize(10).text("Terms & Conditions:", 50, y);
+      doc.font("Helvetica").fontSize(8);
+      y += 12;
+      doc.text("1. Payment is due within the specified due date.", 50, y);
+      y += 10;
+      doc.text("2. Late payments may attract interest charges.", 50, y);
+      y += 10;
+      doc.text("3. Goods once sold will not be taken back.", 50, y);
+      y += 10;
+      doc.text("4. Subject to local jurisdiction.", 50, y);
+      
+      // ===== SIGNATURE =====
+      doc.font("Helvetica").fontSize(9);
+      doc.text("For " + config.business.name, 380, 720, { width: 150, align: "right" });
+      
+      doc.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+module.exports = { generateInvoicePDF, generateInvoicePDFBuffer };

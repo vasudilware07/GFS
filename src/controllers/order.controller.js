@@ -375,7 +375,12 @@ exports.generateInvoice = async (req, res) => {
   try {
     const { dueDate, sendEmail = true } = req.body;
     
-    const order = await Order.findById(req.params.id).populate("userId");
+    const order = await Order.findById(req.params.id)
+      .populate("userId")
+      .populate({
+        path: "items.productId",
+        select: "name unit"
+      });
     
     if (!order) {
       return res.status(404).json({
@@ -408,14 +413,14 @@ exports.generateInvoice = async (req, res) => {
       dueAmount: order.dueAmount
     });
     
-    // Generate PDF
+    // Generate PDF and save to Cloudinary
     const pdfPath = await generateInvoicePDF(invoice, order, order.userId);
     invoice.pdfPath = pdfPath;
     
-    // Send email if requested
+    // Send email if requested - PDF is generated fresh for email
     if (sendEmail) {
       try {
-        await sendInvoiceEmail(order.userId, invoice, pdfPath);
+        await sendInvoiceEmail(order.userId, invoice, order);
         invoice.emailSent = true;
         invoice.emailSentAt = new Date();
       } catch (emailError) {

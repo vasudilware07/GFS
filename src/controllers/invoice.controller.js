@@ -1,5 +1,5 @@
 const { Invoice, Order, User } = require("../models");
-const { generateInvoicePDF } = require("../utils/pdfGenerator");
+const { generateInvoicePDF, generateInvoicePDFBuffer } = require("../utils/pdfGenerator");
 const { sendInvoiceEmail, sendDueReminderEmail } = require("../utils/emailSender");
 const path = require("path");
 const fs = require("fs");
@@ -109,7 +109,13 @@ exports.downloadInvoice = async (req, res) => {
   try {
     const invoice = await Invoice.findById(req.params.id)
       .populate("userId")
-      .populate("orderId");
+      .populate({
+        path: "orderId",
+        populate: {
+          path: "items.productId",
+          select: "name unit"
+        }
+      });
     
     if (!invoice) {
       return res.status(404).json({
@@ -126,25 +132,19 @@ exports.downloadInvoice = async (req, res) => {
       });
     }
     
-    // Check if PDF needs to be regenerated
-    const needsRegeneration = !invoice.pdfPath || 
-      (!invoice.pdfPath.startsWith('http') && !fs.existsSync(invoice.pdfPath));
+    // Generate PDF buffer fresh (bypasses Cloudinary access issues)
+    const pdfBuffer = await generateInvoicePDFBuffer(invoice, invoice.orderId, invoice.userId);
     
-    if (needsRegeneration) {
-      const pdfPath = await generateInvoicePDF(invoice, invoice.orderId, invoice.userId);
-      invoice.pdfPath = pdfPath;
-      await invoice.save();
-    }
+    // Set response headers for PDF download
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${invoice.invoiceNumber}.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
     
-    // If Cloudinary URL, redirect to it
-    if (invoice.pdfPath.startsWith('http')) {
-      return res.redirect(invoice.pdfPath);
-    }
-    
-    // Otherwise, send local file
-    res.download(invoice.pdfPath, `${invoice.invoiceNumber}.pdf`);
+    // Send the PDF buffer
+    res.send(pdfBuffer);
     
   } catch (error) {
+    console.error('Download invoice error:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -161,7 +161,13 @@ exports.resendInvoice = async (req, res) => {
   try {
     const invoice = await Invoice.findById(req.params.id)
       .populate("userId")
-      .populate("orderId");
+      .populate({
+        path: "orderId",
+        populate: {
+          path: "items.productId",
+          select: "name unit"
+        }
+      });
     
     if (!invoice) {
       return res.status(404).json({
@@ -178,23 +184,14 @@ exports.resendInvoice = async (req, res) => {
       });
     }
     
-    // Regenerate PDF if needed
-    const needsRegeneration = !invoice.pdfPath || 
-      (!invoice.pdfPath.startsWith('http') && !fs.existsSync(invoice.pdfPath));
-    
-    if (needsRegeneration) {
-      const pdfPath = await generateInvoicePDF(invoice, invoice.orderId, invoice.userId);
-      invoice.pdfPath = pdfPath;
-    }
-    
-    // Send email
+    // Send email - PDF is generated fresh for each email
     try {
-      await sendInvoiceEmail(invoice.userId, invoice, invoice.pdfPath);
+      await sendInvoiceEmail(invoice.userId, invoice, invoice.orderId);
     } catch (emailError) {
       console.error("Email send error:", emailError);
       return res.status(500).json({
         success: false,
-        message: "Email service not configured. Please check SMTP settings in .env file."
+        message: "Failed to send email. Please check SMTP settings."
       });
     }
     

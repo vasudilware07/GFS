@@ -2,26 +2,30 @@ const transporter = require("../config/mail");
 const config = require("../config/env");
 const path = require("path");
 const axios = require("axios");
+const fs = require("fs");
+const { generateInvoicePDFBuffer } = require("./pdfGenerator");
 
 /**
  * Send Invoice Email with PDF attachment
+ * Generates PDF buffer directly instead of downloading from Cloudinary
  */
-async function sendInvoiceEmail(user, invoice, pdfPath) {
-  // Handle Cloudinary URLs - need to provide URL or download for attachment
-  let attachment;
+async function sendInvoiceEmail(user, invoice, order) {
+  // Generate PDF buffer directly for attachment
+  let attachment = null;
   
-  if (pdfPath.startsWith('http')) {
-    // For Cloudinary URLs, use href (URL attachment)
+  try {
+    console.log("Generating PDF buffer for email attachment...");
+    const pdfBuffer = await generateInvoicePDFBuffer(invoice, order, user);
+    console.log("PDF buffer generated successfully, size:", pdfBuffer.length, "bytes");
+    
     attachment = {
       filename: `${invoice.invoiceNumber}.pdf`,
-      href: pdfPath
+      content: pdfBuffer,
+      contentType: 'application/pdf'
     };
-  } else {
-    // For local files, use path
-    attachment = {
-      filename: `${invoice.invoiceNumber}.pdf`,
-      path: pdfPath
-    };
+  } catch (error) {
+    console.error("Failed to generate PDF for email:", error.message);
+    throw new Error("Failed to generate invoice PDF for email attachment");
   }
   
   const mailOptions = {
@@ -303,9 +307,59 @@ async function sendPaymentConfirmationEmail(user, payment, invoice) {
   return transporter.sendMail(mailOptions);
 }
 
+/**
+ * Send OTP Email for Registration Verification
+ */
+async function sendOTPEmail(email, ownerName, otp) {
+  const mailOptions = {
+    from: config.smtp.from,
+    to: email,
+    subject: `Your OTP for Registration - ${config.business.name}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #4CAF50, #FF9800); color: white; padding: 30px; text-align: center;">
+          <h1 style="margin: 0; font-size: 28px;">🍎 ${config.business.name}</h1>
+          <p style="margin: 10px 0 0 0; font-size: 14px;">Email Verification</p>
+        </div>
+        
+        <div style="padding: 30px; background: #f9f9f9;">
+          <p style="font-size: 16px;">Dear <strong>${ownerName || 'User'}</strong>,</p>
+          
+          <p>Thank you for registering with ${config.business.name}. To complete your registration, please use the following OTP:</p>
+          
+          <div style="background: white; padding: 25px; border-radius: 10px; margin: 25px 0; text-align: center; border: 2px dashed #4CAF50;">
+            <p style="margin: 0; color: #666; font-size: 14px;">Your One-Time Password (OTP)</p>
+            <p style="margin: 10px 0 0 0; font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #4CAF50;">${otp}</p>
+          </div>
+          
+          <div style="background: #fff3e0; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <p style="margin: 0; color: #e65100; font-size: 14px;">
+              ⏰ <strong>This OTP is valid for 10 minutes only.</strong>
+            </p>
+          </div>
+          
+          <p style="color: #666; font-size: 14px;">
+            If you didn't request this verification, please ignore this email. Someone might have entered your email address by mistake.
+          </p>
+          
+          <p style="margin-top: 30px;">Best regards,<br><strong>${config.business.name} Team</strong></p>
+        </div>
+        
+        <div style="background: #333; color: white; padding: 20px; text-align: center; font-size: 12px;">
+          <p style="margin: 0;">${config.business.address}</p>
+          <p style="margin: 5px 0 0 0;">Phone: ${config.business.phone} | Email: ${config.business.email}</p>
+        </div>
+      </div>
+    `
+  };
+  
+  return transporter.sendMail(mailOptions);
+}
+
 module.exports = {
   sendInvoiceEmail,
   sendDueReminderEmail,
   sendWelcomeEmail,
-  sendPaymentConfirmationEmail
+  sendPaymentConfirmationEmail,
+  sendOTPEmail
 };

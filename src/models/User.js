@@ -75,6 +75,15 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // Email OTP Verification
+  emailOTP: {
+    code: String,
+    expiresAt: Date,
+    attempts: {
+      type: Number,
+      default: 0
+    }
+  },
   // KYC (Know Your Customer) Fields
   kyc: {
     isComplete: {

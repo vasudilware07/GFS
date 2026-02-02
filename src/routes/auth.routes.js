@@ -7,6 +7,9 @@ const { protect } = require("../middlewares");
 
 // Public routes
 router.post("/register", authController.register);
+router.post("/send-otp", authController.sendOTP);
+router.post("/verify-otp", authController.verifyOTP);
+router.post("/resend-otp", authController.resendOTP);
 router.post("/login", authController.login);
 
 // Google OAuth routes

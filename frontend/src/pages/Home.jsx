@@ -30,10 +30,9 @@ export default function Home() {
   ];
 
   const owners = [
-    { name: 'Ghisu Dilware', role: 'Founder' },
+    { name: 'Omkar Dilware', role: 'Founder' },
     { name: 'Bhagwan Dilware', role: 'Co-Founder' },
-    { name: 'Subhash Dilware', role: 'Partner' },
-    { name: 'Shekhar Dilware', role: 'Partner' },
+    { name: 'Shekhar Dilware', role: 'CEO' },
   ];
 
   const features = [
@@ -188,14 +187,14 @@ export default function Home() {
               A family business built on trust, quality, and dedication to serve you the freshest fruits.
             </p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="flex flex-wrap justify-center gap-8">
             {owners.map((owner, index) => (
-              <div key={index} className="bg-white rounded-xl shadow-lg p-6 text-center transform hover:scale-105 transition-transform duration-300">
-                <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-orange-400 rounded-full mx-auto mb-4 flex items-center justify-center">
-                  <span className="text-3xl text-white font-bold">{owner.name.charAt(0)}</span>
+              <div key={index} className="bg-white rounded-2xl shadow-lg p-8 text-center transform hover:scale-105 hover:shadow-xl transition-all duration-300 w-64">
+                <div className="w-24 h-24 bg-gradient-to-br from-green-500 to-orange-400 rounded-full mx-auto mb-5 flex items-center justify-center shadow-lg">
+                  <span className="text-4xl text-white font-bold">{owner.name.charAt(0)}</span>
                 </div>
-                <h3 className="text-lg font-bold text-gray-800">{owner.name}</h3>
-                <p className="text-green-600 font-medium">{owner.role}</p>
+                <h3 className="text-xl font-bold text-gray-800 mb-1">{owner.name}</h3>
+                <p className="text-green-600 font-semibold text-lg">{owner.role}</p>
               </div>
             ))}
           </div>
