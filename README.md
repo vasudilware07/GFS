@@ -318,4 +318,4 @@ ISC License
 
 ## 🆘 Support
 
-For issues or questions, contact: ganeshfruits@example.com
+For issues or questions, contact: vasudevdilware04@gmail.com
