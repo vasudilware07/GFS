@@ -312,7 +312,7 @@ ISC License
 
 ## 👨‍💻 Author
 
-**Ganesh Fruit Suppliers**
+**LBR**
 
 ---
 
